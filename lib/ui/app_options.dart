@@ -32,7 +32,7 @@ class _AppOptions extends StatelessWidget {
     final favCount = apps.favorites.length;
 
     Widget option(IconData icon, String label, VoidCallback onTap,
-            {bool autofocus = false, Color color = Retro.cream}) =>
+            {bool autofocus = false, Color? color}) =>
         Padding(
           padding: const EdgeInsets.only(bottom: 6),
           child: RetroButton(

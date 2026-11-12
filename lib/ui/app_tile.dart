@@ -174,7 +174,7 @@ class _AppTileState extends State<AppTile> {
     }
     // Solo icono: icono + nombre sobre fondo nocturno.
     return Container(
-      color: const Color(0xFF3B3150),
+      color: Retro.panel,
       padding: const EdgeInsets.all(7),
       child: Row(children: [
         AspectRatio(aspectRatio: 1, child: img),

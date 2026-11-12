@@ -11,7 +11,9 @@ import 'package:provider/provider.dart';
 
 import '../core/apps_model.dart';
 import '../core/native.dart';
-import '../core/settings_model.dart';
+import '../core/device_model.dart';
+import '../core/theme_model.dart';
+import 'mascot.dart';
 import 'nav.dart';
 import 'retro.dart';
 
@@ -96,9 +98,11 @@ class TopBar extends StatelessWidget {
         BarIcon(icon: Icons.settings_outlined, onPressed: onSettings, focusNode: Nav.settings),
         const SizedBox(width: 6),
         const _NetworkBadge(),
+        const SizedBox(width: 6),
+        const _DeviceActions(),
         const Spacer(),
         RetroButton(
-          color: today.adblock ? const Color(0xFF8FD694) : Retro.cream,
+          color: today.adblock ? Retro.positive : Retro.cream,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
           radius: 20,
           onPressed: onProtection,
@@ -190,7 +194,8 @@ class _HomeHeroState extends State<HomeHero> {
     final date = '${_days[_now.weekday - 1]} ${_now.day} de ${_months[_now.month - 1]}';
     final time = '${_now.hour.toString().padLeft(2, '0')}:${_now.minute.toString().padLeft(2, '0')}';
     final focused = context.select<AppsModel, String?>((m) => m.focusedLabel);
-    final showToday = context.select<SettingsModel, bool>((s) => s.showToday);
+    final theme = context.watch<ThemeModel>().current;
+    final showToday = theme.today;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
@@ -208,7 +213,7 @@ class _HomeHeroState extends State<HomeHero> {
                   Text(date, style: Retro.body(18)),
                 ]),
                 const SizedBox(height: 10),
-                Text(time, style: Retro.title(84)),
+                if (theme.clock != 'oculto') Text(time, style: Retro.title(theme.clock == 'mediano' ? 56 : 84)),
                 const SizedBox(height: 14),
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 180),
@@ -239,7 +244,10 @@ class _HomeHeroState extends State<HomeHero> {
               ],
             ),
           ),
-          if (showToday) ...[
+          if (theme.mascot) ...[
+            const SizedBox(width: 24),
+            const AlfiCard(),
+          ] else if (showToday) ...[
             const SizedBox(width: 24),
             const TodayCard(),
           ],
@@ -259,7 +267,7 @@ class TodayCard extends StatelessWidget {
           Container(
             width: 36,
             height: 36,
-            decoration: Retro.box(color: on ? color : const Color(0xFFB9B4A8), radius: 9, border: 2.5, shadow: 2),
+            decoration: Retro.box(color: on ? color : Retro.muted, radius: 9, border: 2.5, shadow: 2),
             child: Icon(icon, size: 20, color: Retro.ink),
           ),
           const SizedBox(width: 10),
@@ -281,10 +289,10 @@ class TodayCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const RetroSticker('TU TELE HOY', color: Retro.teal),
+          RetroSticker('TU TELE HOY', color: Retro.teal),
           const SizedBox(height: 12),
           _stat(Icons.shield, '${t.ads}', t.adblock ? 'anuncios bloqueados' : 'bloqueo apagado',
-              const Color(0xFF8FD694), t.adblock),
+              Retro.positive, t.adblock),
           const SizedBox(height: 8),
           _stat(Icons.bolt, '${t.actions}', t.automation ? 'avisos cerrados solos' : 'automatizaciones apagadas',
               Retro.mustard, t.automation),
@@ -373,13 +381,37 @@ class _BarIconState extends State<BarIcon> {
           height: 38,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: _focused ? const Color(0xFF3B3150) : Colors.transparent,
+            color: _focused ? Retro.panel : Colors.transparent,
             border: Border.all(color: _focused ? Retro.mustard : Colors.transparent, width: 2.5),
           ),
           child: Icon(widget.icon,
               size: 21,
-              color: widget.alert ? const Color(0xFFFF8A8A) : Retro.cream,
-              shadows: const [Shadow(color: Retro.ink, offset: Offset(2, 2))]),
+              color: widget.alert ? Color(0xFFFF8A8A) : Retro.cream,
+              shadows: [Shadow(color: Retro.ink, offset: Offset(2, 2))]),
         ),
       );
+}
+
+/// Accesos que cambian según el aparato: en un televisor, entradas e imagen;
+/// en un deco, el espacio libre (avisa si queda poco).
+class _DeviceActions extends StatelessWidget {
+  const _DeviceActions();
+
+  @override
+  Widget build(BuildContext context) {
+    final d = context.watch<DeviceModel>();
+    if (!d.loaded) return const SizedBox.shrink();
+    if (d.isTv) {
+      return Row(mainAxisSize: MainAxisSize.min, children: [
+        BarIcon(icon: Icons.input, onPressed: () => Native.launcher.invokeMethod('openInputs')),
+        const SizedBox(width: 6),
+        BarIcon(icon: Icons.tune, onPressed: () => Native.launcher.invokeMethod('openPicture')),
+      ]);
+    }
+    return BarIcon(
+      icon: Icons.sd_storage_outlined,
+      alert: d.lowStorage,
+      onPressed: () => Native.launcher.invokeMethod('openStorage'),
+    );
+  }
 }

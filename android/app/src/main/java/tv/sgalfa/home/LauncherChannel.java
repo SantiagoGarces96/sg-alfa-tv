@@ -89,6 +89,28 @@ public final class LauncherChannel {
                 case "network":
                     result.success(network());
                     break;
+                case "alfiReport":
+                    io.execute(() -> {
+                        Map<String, Object> r = AlfiReport.build(activity);
+                        main.post(() -> result.success(r));
+                    });
+                    break;
+                case "deviceInfo":
+                    result.success(deviceInfo());
+                    break;
+                case "openInputs":
+                    // Selector de entradas (HDMI, antena…) en televisores.
+                    result.success(start(new Intent("com.android.tv.action.VIEW_INPUTS"))
+                            || start(new Intent(Settings.ACTION_SETTINGS)));
+                    break;
+                case "openPicture":
+                    result.success(start(new Intent("android.settings.DISPLAY_SETTINGS"))
+                            || start(new Intent(Settings.ACTION_SETTINGS)));
+                    break;
+                case "openStorage":
+                    result.success(start(new Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS))
+                            || start(new Intent(Settings.ACTION_SETTINGS)));
+                    break;
                 case "isDefaultHome":
                     result.success(isDefaultHome());
                     break;
@@ -226,6 +248,47 @@ public final class LauncherChannel {
         }
         m.put("type", type);
         return m;
+    }
+
+    /**
+     * ¿Televisor o deco? HDMI-CEC lo dice: tipo 0 = televisor, tipo 4 = reproductor (deco, TV box, stick).
+     * Si el aparato no lo indica, se mira el modelo.
+     */
+    private Map<String, Object> deviceInfo() {
+        Map<String, Object> m = new HashMap<>();
+        String cec = sysProp("ro.hdmi.device_type");
+        String model = android.os.Build.MODEL == null ? "" : android.os.Build.MODEL;
+        String brand = android.os.Build.BRAND == null ? "" : android.os.Build.BRAND;
+        String kind;
+        if (cec.startsWith("0") || cec.contains(",0") || cec.equals("0")) {
+            kind = "tv";
+        } else if (!cec.isEmpty()) {
+            kind = "box";
+        } else {
+            String s = (brand + " " + model).toLowerCase(java.util.Locale.ROOT);
+            boolean boxy = s.matches(".*(box|stb|stick|chromecast|shield|mibox|fire ?tv|onetv|vip|streamer|player).*");
+            kind = boxy ? "box" : "tv";
+        }
+        m.put("kind", kind);
+        m.put("model", model);
+        m.put("brand", brand);
+        try {
+            android.os.StatFs st = new android.os.StatFs(android.os.Environment.getDataDirectory().getPath());
+            m.put("freeGb", st.getAvailableBytes() / 1_073_741_824.0);
+            m.put("totalGb", st.getTotalBytes() / 1_073_741_824.0);
+        } catch (Exception ignored) {
+        }
+        return m;
+    }
+
+    private static String sysProp(String key) {
+        try {
+            Class<?> c = Class.forName("android.os.SystemProperties");
+            Object v = c.getMethod("get", String.class).invoke(null, key);
+            return v == null ? "" : v.toString().trim();
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     private boolean isDefaultHome() {

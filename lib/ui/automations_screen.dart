@@ -153,7 +153,7 @@ class _SgAutomationsScreenState extends State<SgAutomationsScreen> {
         ),
       ],
       child: _loading
-          ? const Center(child: CircularProgressIndicator(color: Retro.mustard))
+          ? Center(child: CircularProgressIndicator(color: Retro.mustard))
           : ListView(
               padding: const EdgeInsets.only(bottom: 40, right: 8),
               children: [
@@ -186,7 +186,7 @@ class _SgAutomationsScreenState extends State<SgAutomationsScreen> {
                   onToggle: () => _save({...m, 'enabled': m['enabled'] != true}),
                 ),
                 const SizedBox(height: 22),
-                const RetroSticker('PLANTILLAS', color: Retro.teal),
+                RetroSticker('PLANTILLAS', color: Retro.teal),
                 const SizedBox(height: 12),
                 for (final t in _templates)
                   _TemplateRow(
@@ -249,7 +249,7 @@ class _MacroRow extends StatelessWidget {
           SizedBox(
             width: 128,
             child: RetroButton(
-              color: on ? const Color(0xFF8FD694) : const Color(0xFFB9B4A8),
+              color: on ? Retro.positive : Retro.muted,
               focusColor: Retro.mustard,
               onPressed: onToggle,
               padding: const EdgeInsets.symmetric(vertical: 18),
@@ -279,14 +279,14 @@ class _TemplateRow extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 margin: const EdgeInsets.only(right: 5, bottom: 5),
-                decoration: Retro.box(color: const Color(0xFFE8F4F2), shadow: 4),
+                decoration: Retro.box(color: Retro.cream, shadow: 4),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('${template['name']}',
-                        style: const TextStyle(color: Retro.ink, fontSize: 16, fontWeight: FontWeight.w800)),
+                        style: TextStyle(color: Retro.ink, fontSize: 16, fontWeight: FontWeight.w800)),
                     Text('${template['description']}',
-                        style: const TextStyle(color: Retro.ink, fontSize: 13, fontWeight: FontWeight.w500)),
+                        style: TextStyle(color: Retro.ink, fontSize: 13, fontWeight: FontWeight.w500)),
                   ],
                 ),
               ),
@@ -454,7 +454,7 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
 
   Widget _choice(String label, bool selected, VoidCallback onTap, {IconData? icon}) => RetroButton(
         color: selected ? Retro.mustard : Retro.cream,
-        focusColor: selected ? const Color(0xFFFFD166) : const Color(0xFFFFE8A3),
+        focusColor: selected ? Retro.mustard : Retro.cream,
         onPressed: onTap,
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(selected ? Icons.radio_button_checked : Icons.radio_button_off, size: 20),
@@ -518,7 +518,7 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
                 autofocus: true,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (v) => Navigator.of(ctx).pop(v),
-                style: const TextStyle(color: Retro.ink, fontSize: 22, fontWeight: FontWeight.w700),
+                style: TextStyle(color: Retro.ink, fontSize: 22, fontWeight: FontWeight.w700),
                 cursorColor: Retro.red,
                 decoration: InputDecoration(
                   hintText: hint,
@@ -527,15 +527,15 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Retro.ink, width: 3),
+                    borderSide: BorderSide(color: Retro.ink, width: 3),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Retro.ink, width: 3),
+                    borderSide: BorderSide(color: Retro.ink, width: 3),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Retro.red, width: 4),
+                    borderSide: BorderSide(color: Retro.red, width: 4),
                   ),
                 ),
               ),
@@ -566,7 +566,7 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
   Widget _block(String sticker, Color color, String subtitle, List<Widget> children) => Container(
         margin: const EdgeInsets.only(bottom: 16, right: 6),
         padding: const EdgeInsets.all(16),
-        decoration: Retro.box(color: const Color(0xFF3B3150), shadow: 6, borderColor: Retro.ink),
+        decoration: Retro.box(color: Retro.panel, shadow: 6, borderColor: Retro.ink),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -680,11 +680,11 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
             padding: const EdgeInsets.all(16),
             decoration: Retro.box(color: Retro.cream, shadow: 6),
             child: Row(children: [
-              const Icon(Icons.chat_bubble, color: Retro.red),
+              Icon(Icons.chat_bubble, color: Retro.red),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(_summary,
-                    style: const TextStyle(color: Retro.ink, fontSize: 18, fontWeight: FontWeight.w700)),
+                    style: TextStyle(color: Retro.ink, fontSize: 18, fontWeight: FontWeight.w700)),
               ),
             ]),
           ),

@@ -2,7 +2,7 @@ name: sg_alfa_home
 description: "SG Alfa Home: pantalla de inicio retro para Android TV con bloqueo de anuncios y automatizaciones."
 publish_to: 'none'
 
-version: 2.0.0+5000
+version: 2.1.0+5001
 
 environment:
   sdk: ^3.11.0
@@ -28,3 +28,7 @@ flutter:
     - family: Bungee
       fonts:
         - asset: assets/fonts/Bungee-Regular.ttf
+    # Press Start 2P (SIL Open Font License, ver assets/fonts/OFL-PressStart2P.txt)
+    - family: PressStart2P
+      fonts:
+        - asset: assets/fonts/PressStart2P-Regular.ttf

@@ -21,6 +21,22 @@ Proyecto 100 % propio de **SG Alfa**: escrito desde cero (Flutter + Java), sin c
 - Mantén **OK** sobre una app para: abrir, añadir/quitar del dock, moverla, ocultarla, ver su información
   o desinstalarla.
 
+### Alfi, la mascota 8-bit
+Un pequeño espartano pixelado (personaje original de SG Alfa) que vive en el inicio y habla contigo:
+- Te da el resumen del día: anuncios bloqueados, avisos cerrados y tiempo de tele.
+- **Registra lo que ves**: tiempo por app hoy y esta semana.
+- **Aprende tus costumbres**: qué sueles ver por la mañana, tarde, noche y madrugada, y te lo sugiere.
+- **Ayuda con la limpieza**: mide la caché de cada app y te lleva a borrarla; avisa de las apps olvidadas.
+- Sabe si está en un **televisor o en un deco** y adapta lo que dice y los accesos (entradas HDMI e imagen
+  en un televisor; espacio libre en un deco).
+Todo se calcula en la propia tele con el registro de uso de Android; no se envía nada fuera.
+
+### Temas
+- **Sugeridos**: Cómic, Hacker, Gamer, Formal, Pastel y 8-bit (con Alfi). La app sugiere uno según la hora.
+- **Automático**: un tema de día y otro de noche que cambian solos.
+- **Crea el tuyo**: colores, contorno, sombra, esquinas, tipografía, fondo, tamaño de las apps, estilo del
+  dock, reloj, nombres y mascota, con vista previa en directo. Guarda todos los que quieras.
+
 ### Protección SG Alfa
 - **Bloqueo de anuncios y pop-ups** para toda la tele, sin root: una VPN local que solo filtra el DNS
   (AdGuard DNS + lista propia). El resto del tráfico no pasa por ella.
@@ -30,8 +46,7 @@ Proyecto 100 % propio de **SG Alfa**: escrito desde cero (Flutter + Java), sin c
   Incluye plantillas para «¿Sigues viendo?», «Continuar usando», «Saltar anuncio» y pop-ups de publicidad.
 
 ### Ajustes
-Protección, 4 fondos de pantalla propios (Noche roja, Atardecer retro, Arcade, Cielo de cómic), qué se
-muestra en el inicio, apps ocultas y acceso a los ajustes de la tele.
+Protección, temas (con 6 fondos propios), apps ocultas y acceso a los ajustes de la tele o del deco.
 
 ---
 
@@ -65,6 +80,6 @@ flutter run -d <ip-de-la-tele>:5555
 
 ## Licencias
 
-Código © 2026 SG Alfa. Componentes de terceros: Flutter y sus librerías (BSD/MIT) y la tipografía **Bungee**
-(SIL Open Font License, ver `assets/fonts/OFL-Bungee.txt`). La lista completa está en la app:
+Código © 2026 SG Alfa. Componentes de terceros: Flutter y sus librerías (BSD/MIT) y las tipografías **Bungee** y
+**Press Start 2P** (SIL Open Font License, ver `assets/fonts/`). La lista completa está en la app:
 Ajustes → Acerca de → Licencias de componentes.

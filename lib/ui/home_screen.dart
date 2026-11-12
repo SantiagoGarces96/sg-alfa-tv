@@ -10,7 +10,7 @@ import 'package:provider/provider.dart';
 
 import '../core/apps_model.dart';
 import '../core/native.dart';
-import '../core/settings_model.dart';
+import '../core/theme_model.dart';
 import 'app_options.dart';
 import 'app_tile.dart';
 import 'home_widgets.dart';
@@ -30,7 +30,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   static const _topBar = 56.0;
   static const _dockHeight = 110.0;
-  static const _columns = 6;
 
   @override
   void initState() {
@@ -56,7 +55,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final apps = context.watch<AppsModel>();
-    final settings = context.watch<SettingsModel>();
+    final theme = context.watch<ThemeModel>().current;
     final size = MediaQuery.sizeOf(context);
     final favorites = apps.favorites;
     final others = apps.others;
@@ -70,13 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Positioned.fill(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 600),
-              child: Image.asset(
-                settings.wallpaper.asset,
-                key: ValueKey(settings.wallpaper.id),
-                fit: BoxFit.cover,
-                width: size.width,
-                height: size.height,
-              ),
+              child: _wallpaper(theme, size),
             ),
           ),
           // Velo inferior para que el texto y las apps se lean sobre cualquier fondo.
@@ -109,10 +102,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       controller: _scroll,
                       slivers: [
                         SliverToBoxAdapter(child: SizedBox(height: heroHeight, child: const HomeHero())),
-                        SliverToBoxAdapter(child: _dock(favorites, settings.showNames)),
-                        if (others.isNotEmpty) ...[
+                        if (theme.dock != 'oculto') SliverToBoxAdapter(child: _dock(favorites, theme)),
+                        if (others.isNotEmpty || theme.dock == 'oculto') ...[
                           const SliverToBoxAdapter(child: SectionTitle('TODAS LAS APPS')),
-                          SliverToBoxAdapter(child: _grid(others, settings.showNames, favorites.isEmpty)),
+                          SliverToBoxAdapter(
+                            child: _grid(theme.dock == 'oculto' ? [...favorites, ...others] : others, theme,
+                                favorites.isEmpty || theme.dock == 'oculto')),
                         ],
                         const SliverToBoxAdapter(child: SizedBox(height: 80)),
                       ],
@@ -144,18 +139,50 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _dock(List<TvApp> favorites, bool showNames) {
+  static int _columns(SgTheme t) => switch (t.tileSize) { 's' => 7, 'l' => 5, _ => 6 };
+
+  static double _dockTile(SgTheme t) => switch (t.tileSize) { 's' => 112, 'l' => 150, _ => 130 };
+
+  Widget _wallpaper(SgTheme t, Size size) {
+    final asset = SgThemes.wallpaperAsset(t.wallpaper);
+    if (asset == null) {
+      return DecoratedBox(
+        key: ValueKey('grad-${t.id}'),
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: const Alignment(-0.6, 0.9),
+            radius: 1.4,
+            colors: [Color.lerp(t.primary, t.night, 0.45)!, t.night, Color.lerp(t.night, Colors.black, 0.5)!],
+            stops: const [0, 0.55, 1],
+          ),
+        ),
+        child: SizedBox(width: size.width, height: size.height),
+      );
+    }
+    return Image.asset(asset, key: ValueKey(asset), fit: BoxFit.cover, width: size.width, height: size.height,
+        filterQuality: t.wallpaper == 'pixel' ? FilterQuality.none : FilterQuality.medium);
+  }
+
+  Widget _dock(List<TvApp> favorites, SgTheme theme) {
     return Nav.arrows(
       up: Nav.aboveDock,
       child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Container(
         height: _dockHeight - 16,
-        decoration: Retro.box(color: Retro.cream.withValues(alpha: 0.88), radius: 22, border: 4, shadow: 7),
+        decoration: switch (theme.dock) {
+          'oscuro' => Retro.box(color: Retro.night.withValues(alpha: 0.85), radius: 22, border: 4, shadow: 7),
+          'cristal' => Retro.box(color: Colors.white.withValues(alpha: 0.10), radius: 22, border: 2, shadow: 0,
+              borderColor: Retro.cream.withValues(alpha: 0.35)),
+          _ => Retro.box(color: Retro.cream.withValues(alpha: 0.88), radius: 22, border: 4, shadow: 7),
+        },
         child: favorites.isEmpty
             ? Center(
                 child: Text('Mantén OK sobre una app para añadirla aquí',
-                    style: TextStyle(color: Retro.ink, fontSize: 20, fontWeight: FontWeight.w700)),
+                    style: TextStyle(
+                        color: theme.dock == 'crema' ? Retro.on(Retro.cream) : Retro.cream,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700)),
               )
             : SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -166,8 +193,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     Padding(
                       padding: const EdgeInsets.only(right: 21),
                       child: SizedBox(
-                        width: 130,
-                        height: 74,
+                        width: _dockTile(theme),
+                        height: _dockTile(theme) * 9 / 16 + 1,
                         child: _tile(favorites[i], first: i == 0, inDock: true, showNames: false),
                       ),
                     ),
@@ -178,12 +205,14 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _grid(List<TvApp> apps, bool showNames, bool focusFirst) {
+  Widget _grid(List<TvApp> apps, SgTheme theme, bool focusFirst) {
+    final showNames = theme.names;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: LayoutBuilder(builder: (context, c) {
         const gap = 21.0;
-        final w = (c.maxWidth - gap * (_columns - 1)) / _columns;
+        final cols = _columns(theme);
+        final w = (c.maxWidth - gap * (cols - 1)) / cols;
         return Wrap(
           spacing: gap,
           runSpacing: showNames ? 22 : gap,
