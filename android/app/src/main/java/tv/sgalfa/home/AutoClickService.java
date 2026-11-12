@@ -32,6 +32,10 @@ public class AutoClickService extends AccessibilityService {
     private static final int MAX_DEPTH = 40;
     private static final int MAX_NODES = 600;
 
+    /** El servicio activo (para lanzar la limpieza desde la pantalla de inicio). */
+    static volatile AutoClickService instance;
+    CacheCleaner cleaner;
+
     private volatile List<Macros.Macro> macros = new ArrayList<>();
     private final Map<String, Long> lastRun = new HashMap<>();
     private final Set<String> pending = new HashSet<>();
@@ -65,6 +69,8 @@ public class AutoClickService extends AccessibilityService {
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
+        instance = this;
+        cleaner = new CacheCleaner(this);
         loadMacros();
         prefs().registerOnSharedPreferenceChangeListener(listener);
     }
@@ -121,10 +127,60 @@ public class AutoClickService extends AccessibilityService {
         return Macros.textMatches(m, s.screen, s.pkg) ? Boolean.TRUE : null;
     }
 
+    private final Map<String, Long> lastAdCheck = new HashMap<>();
+
+    /** Si en pantalla hay algo con pinta de anuncio, Alfi lo apunta en su libreta. */
+    private void spotAd(Snapshot s) {
+        if (s.pkg == null || s.pkg.equals(getPackageName()) || s.pkg.startsWith("com.android.")
+                || s.pkg.equals("com.google.android.tvlauncher") || s.pkg.equals("com.spocky.projengmenu")) return;
+        long now = SystemClock.uptimeMillis();
+        Long last = lastAdCheck.get(s.pkg);
+        if (last != null && now - last < 3000) return;
+        lastAdCheck.put(s.pkg, now);
+        String screen = s.screen.toLowerCase(java.util.Locale.ROOT);
+        String hit = null;
+        for (String w : AdLog.AD_SCREEN_WORDS) {
+            if (screen.contains(w)) {
+                hit = w;
+                break;
+            }
+        }
+        if (hit == null) return;
+        int at = Math.max(0, screen.indexOf(hit) - 40);
+        String text = s.screen.substring(at, Math.min(s.screen.length(), at + 120)).replaceAll("\\s+", " ").trim();
+        List<String> buttons = new ArrayList<>();
+        for (AccessibilityNodeInfo n : s.nodes) {
+            String l = label(n);
+            if (l == null) continue;
+            l = l.trim();
+            if (l.isEmpty() || l.length() > 30 || buttons.contains(l)) continue;
+            boolean clickable = n.isClickable() || (n.getParent() != null && n.getParent().isClickable());
+            if (clickable) buttons.add(l);
+            if (buttons.size() >= 6) break;
+        }
+        String name = s.pkg;
+        try {
+            name = String.valueOf(getPackageManager().getApplicationLabel(getPackageManager().getApplicationInfo(s.pkg, 0)));
+        } catch (Exception ignored) {
+        }
+        AdLog.popup(this, s.pkg, name, text, buttons);
+        String key = s.pkg + "@" + new java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.ROOT).format(new java.util.Date());
+        if (AlfiOverlay.enabled(this) && announced.add(key)) {
+            AlfiOverlay.say(this, "¡Te pillé, anuncio! Lo apunto en mi libreta para bloquearlo.", 3500);
+        }
+    }
+
+    private final Set<String> announced = new HashSet<>();
+
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
         Snapshot s = snapshot();
         if (s == null) return;
+        if (cleaner != null && cleaner.running()) {
+            cleaner.onScreen(s.pkg, getRootInActiveWindow(), s.nodes, s.screen);
+            return;
+        }
+        spotAd(s);
         long now = SystemClock.uptimeMillis();
         for (Macros.Macro m : macros) {
             if (!m.enabled || pending.contains(m.id)) continue;
@@ -153,6 +209,15 @@ public class AutoClickService extends AccessibilityService {
 
     private void perform(Macros.Macro m, Object hit) {
         Stats.add(this, Stats.ACTIONS);
+        if (AlfiOverlay.enabled(this)) {
+            String what;
+            switch (m.action) {
+                case "BACK": what = "Cerré «" + m.name + "» por ti."; break;
+                case "HOME": what = "Te llevé al inicio («" + m.name + "»)."; break;
+                default: what = "¡Pulsé «" + m.text.trim() + "» por ti!";
+            }
+            AlfiOverlay.say(this, what, 3500);
+        }
         switch (m.action) {
             case "BACK":
                 performGlobalAction(GLOBAL_ACTION_BACK);
@@ -189,6 +254,8 @@ public class AutoClickService extends AccessibilityService {
 
     @Override
     public void onDestroy() {
+        if (instance == this) instance = null;
+        AlfiOverlay.hide(this);
         handler.removeCallbacksAndMessages(null);
         try {
             prefs().unregisterOnSharedPreferenceChangeListener(listener);

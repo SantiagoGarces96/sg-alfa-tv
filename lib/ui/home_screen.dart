@@ -13,6 +13,7 @@ import '../core/native.dart';
 import '../core/theme_model.dart';
 import 'app_options.dart';
 import 'app_tile.dart';
+import 'clean_prompt.dart';
 import 'home_widgets.dart';
 import 'nav.dart';
 import 'retro.dart';
@@ -31,10 +32,22 @@ class _HomeScreenState extends State<HomeScreen> {
   static const _topBar = 56.0;
   static const _dockHeight = 110.0;
 
+  bool _cleanPrompted = false;
+
   @override
   void initState() {
     super.initState();
     Native.onHomePressed(_goHome);
+    context.read<TodayModel>().addListener(_maybeClean);
+  }
+
+  /// El día de limpieza, la primera vez que se ve el inicio, Alfi propone limpiar.
+  void _maybeClean() {
+    final t = context.read<TodayModel>();
+    if (!t.cleanDue || _cleanPrompted || !mounted) return;
+    if (ModalRoute.of(context)?.isCurrent != true) return;
+    _cleanPrompted = true;
+    showCleanPrompt(context);
   }
 
   @override

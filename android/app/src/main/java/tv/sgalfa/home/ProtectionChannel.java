@@ -57,10 +57,62 @@ public final class ProtectionChannel {
                             } catch (Exception ignored) {
                             }
                             t.put("suggestion", s);
+                            t.put("cleanDue", CacheCleaner.due(activity) && AutoClickService.isEnabled(activity));
+                            t.put("cleanWeekly", CacheCleaner.weeklyEnabled(activity));
+                            t.put("cleanWeekday", CacheCleaner.weekday(activity));
+                            t.put("cleanLast", CacheCleaner.lastSummary(activity));
+                            t.put("alfiToasts", AlfiOverlay.enabled(activity));
+                            java.util.Set<String> have = new java.util.HashSet<>();
+                            for (Macros.Macro m : AutoClickService.load(activity)) have.add(m.id);
+                            int missing = 0;
+                            for (Macros.Macro m : Macros.templates()) if (!have.contains(m.id) && m.enabled) missing++;
+                            t.put("missingTemplates", missing);
                             activity.runOnUiThread(() -> result.success(t));
                         }, "sgalfa-today").start();
                         break;
                     }
+                    case "cleanNow": {
+                        AutoClickService s = AutoClickService.instance;
+                        if (s == null || s.cleaner == null) {
+                            result.success(false);
+                            break;
+                        }
+                        new Thread(() -> {
+                            List<String> pkgs = CacheCleaner.candidates(activity);
+                            activity.runOnUiThread(() -> {
+                                s.cleaner.start(pkgs);
+                                result.success(!pkgs.isEmpty());
+                            });
+                        }, "sgalfa-clean").start();
+                        break;
+                    }
+                    case "cleanSkipToday":
+                        CacheCleaner.skipToday(activity);
+                        result.success(true);
+                        break;
+                    case "setWeeklyClean": {
+                        Boolean on = call.argument("enabled");
+                        Integer day = call.argument("weekday");
+                        CacheCleaner.setWeekly(activity, !Boolean.FALSE.equals(on),
+                                day == null ? CacheCleaner.weekday(activity) : day);
+                        result.success(true);
+                        break;
+                    }
+                    case "setAlfiToasts":
+                        AlfiOverlay.setEnabled(activity, Boolean.TRUE.equals(call.arguments()));
+                        result.success(true);
+                        break;
+                    case "adLog":
+                        result.success(AdLog.forUi(activity));
+                        break;
+                    case "blockDomain":
+                        AdLog.blockDomain(activity, (String) call.arguments());
+                        result.success(AdLog.forUi(activity));
+                        break;
+                    case "clearAdLog":
+                        AdLog.clear(activity);
+                        result.success(true);
+                        break;
                     case "getMacrosFull":
                         result.success(macrosFull(AutoClickService.load(activity)));
                         break;

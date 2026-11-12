@@ -287,6 +287,51 @@ class _ProtectionPageState extends State<_ProtectionPage> {
           if (context.mounted) context.read<TodayModel>().refresh();
         },
       ),
+      _Row(
+        icon: Icons.cleaning_services,
+        title: 'Limpieza semanal de caché',
+        subtitle: t.cleanWeekly
+            ? 'Los ${_dayName(t.cleanWeekday)}, Alfi borra la caché de todas las apps'
+            : 'Apagada',
+        trailing: RetroSwitch(t.cleanWeekly),
+        onTap: () async {
+          await Native.protection.invokeMethod('setWeeklyClean', {'enabled': !t.cleanWeekly, 'weekday': t.cleanWeekday});
+          await t.refresh();
+        },
+      ),
+      if (t.cleanWeekly)
+        _Row(
+          icon: Icons.event,
+          title: 'Día de limpieza: ${_dayName(t.cleanWeekday)}',
+          subtitle: 'OK para cambiar',
+          onTap: () async {
+            final next = t.cleanWeekday % 7 + 1; // 1 = domingo … 7 = sábado
+            await Native.protection.invokeMethod('setWeeklyClean', {'enabled': true, 'weekday': next});
+            await t.refresh();
+          },
+        ),
+      _Row(
+        icon: Icons.auto_delete,
+        title: 'Limpiar la caché ahora',
+        subtitle: t.cleanLast.isNotEmpty ? 'Última vez: ${t.cleanLast}' : 'Necesita el servicio de automatizaciones',
+        onTap: () async {
+          final ok = await Native.protection.invokeMethod('cleanNow');
+          if (ok != true && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('Activa primero el servicio de automatizaciones (arriba).')));
+          }
+        },
+      ),
+      _Row(
+        icon: Icons.smart_toy,
+        title: 'Alfi aparece al actuar',
+        subtitle: 'Sale un momento en la esquina cuando cierra un aviso o limpia',
+        trailing: RetroSwitch(t.alfiToasts),
+        onTap: () async {
+          await Native.protection.invokeMethod('setAlfiToasts', !t.alfiToasts);
+          await t.refresh();
+        },
+      ),
       const SizedBox(height: 10),
       Text(
         'Si usas otra VPN (AdGuard, Blokada…), apágala antes: solo puede haber una a la vez.',
@@ -774,3 +819,14 @@ class _SwatchState extends State<_Swatch> {
         ),
       );
 }
+
+String _dayName(int calendarDay) => const {
+      1: 'domingos',
+      2: 'lunes',
+      3: 'martes',
+      4: 'miércoles',
+      5: 'jueves',
+      6: 'viernes',
+      7: 'sábados',
+    }[calendarDay] ??
+    'lunes';

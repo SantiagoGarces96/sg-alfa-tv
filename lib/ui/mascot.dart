@@ -14,6 +14,7 @@ import '../core/alfi_model.dart';
 import '../core/apps_model.dart';
 import '../core/native.dart';
 import '../core/device_model.dart';
+import 'alfi_brain.dart';
 import 'home_widgets.dart';
 import 'nav.dart';
 import 'retro.dart';
@@ -134,6 +135,7 @@ class _AlfiCardState extends State<AlfiCard> {
   int _index = 0;
   String _full = '';
   int _shown = 0;
+  AlfiTip? _tip;
 
   @override
   void initState() {
@@ -152,51 +154,32 @@ class _AlfiCardState extends State<AlfiCard> {
     super.dispose();
   }
 
-  /// Lo que Alfi puede decir ahora, según lo que sabe de la tele.
-  List<String> _lines() {
-    final now = DateTime.now();
-    final t = context.read<TodayModel>();
-    final d = context.read<DeviceModel>();
-    final a = context.read<AlfiModel>();
-    final apps = context.read<AppsModel>();
-    final your = d.your;
-    final h = now.hour;
-    final hello = h >= 6 && h < 12 ? '¡Buenos días!' : (h >= 12 && h < 19 ? '¡Buenas tardes!' : '¡Buenas noches!');
-    final slotNow = h >= 6 && h < 12 ? 'mañana' : (h >= 12 && h < 19 ? 'tarde' : (h >= 19 ? 'noche' : 'madrugada'));
-    final learned = a.slots[slotNow];
-    return [
-      '$hello Soy Alfi y cuido de $your.',
-      if (t.adblock) 'Hoy he bloqueado ${t.ads} anuncios. ¡Ni uno se me escapa!',
-      if (!t.adblock) 'El bloqueo de anuncios está apagado. Actívalo en Ajustes → Protección.',
-      if (t.automation && t.actions > 0) 'He cerrado ${t.actions} avisos por ti hoy.',
-      if (a.todayMinutes > 0 && a.today.isNotEmpty)
-        'Hoy llevas ${AlfiModel.duration(a.todayMinutes)} de tele, sobre todo ${a.today.first.name}.',
-      if (a.week.isNotEmpty)
-        'Tu app de la semana: ${a.week.first.name} (${AlfiModel.duration(a.week.first.value.toInt())}).',
-      if (learned != null) 'He aprendido que por la $slotNow sueles ver ${learned.name}.',
-      if (t.suggestion != null) 'A esta hora sueles ver ${t.suggestion!['name']}. Pulsa ▶ aquí abajo.',
-      if (a.cacheTotalMb > 300)
-        'Hay ${AlfiModel.size(a.cacheTotalMb)} de caché acumulada. Entra en «Mi resumen» y limpiamos.',
-      if (a.forgotten.isNotEmpty) 'No abres ${a.forgotten.first.name} desde hace semanas. ¿La ocultamos?',
-      if (d.isTv) 'Para cambiar a HDMI o la antena, usa el botón de entradas de arriba.',
-      if (!d.isTv && d.lowStorage) 'A $your le queda poco espacio (${d.freeGb!.toStringAsFixed(1)} GB).',
-      if (h >= 23 || h < 5) 'Es tarde… ¿el último capítulo y a dormir?',
-      if (apps.favorites.isEmpty) 'Tu dock está vacío. Mantén OK sobre una app para añadirla.',
-      'Puedes cambiar mi mundo en Ajustes → Temas.',
-    ];
-  }
-
   void _say() {
     if (!mounted) return;
-    final lines = _lines();
-    _full = lines[_index % lines.length];
+    final tips = alfiTips(context, openReport: () => AlfiReportScreen.open(context));
+    if (tips.isEmpty) return;
+    // Primero el saludo; luego los consejos por importancia, en bucle.
+    _tip = tips[_index % tips.length];
+    _full = _tip!.text;
     _shown = 0;
     _typing?.cancel();
-    _typing = Timer.periodic(const Duration(milliseconds: 26), (tm) {
+    _typing = Timer.periodic(const Duration(milliseconds: 24), (tm) {
       if (!mounted) return tm.cancel();
       setState(() => _shown = (_shown + 1).clamp(0, _full.length));
       if (_shown >= _full.length) tm.cancel();
     });
+  }
+
+  Future<void> _runAction() async {
+    final tip = _tip;
+    if (tip?.action == null) return;
+    tip!.action!(context);
+    // Tras actuar, Alfi pasa al siguiente consejo con los datos ya actualizados.
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
+    await context.read<AlfiModel>().refresh();
+    _index++;
+    _say();
   }
 
   Widget _chip(IconData icon, String text, Color color) => Container(
@@ -214,8 +197,6 @@ class _AlfiCardState extends State<AlfiCard> {
   Widget build(BuildContext context) {
     final t = context.watch<TodayModel>();
     final a = context.watch<AlfiModel>();
-    final s = t.suggestion;
-    final hasSuggestion = s != null;
 
     return Container(
       width: 420,
@@ -252,24 +233,20 @@ class _AlfiCardState extends State<AlfiCard> {
           up: Nav.toTopBar,
           down: Nav.toDock,
           child: Row(children: [
-            if (hasSuggestion)
-              Flexible(
-                child: RetroButton(
-                  focusNode: Nav.suggestion,
-                  color: Retro.red,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  onPressed: () => Native.launch('${s['packageName']}'),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.play_arrow_rounded, size: 22),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text('${s['name']}', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15)),
-                    ),
-                  ]),
-                ),
+            if (_tip?.action != null)
+              RetroButton(
+                focusNode: Nav.suggestion,
+                color: Retro.red,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                onPressed: _runAction,
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(_tip!.actionIcon ?? Icons.check, size: 20),
+                  const SizedBox(width: 4),
+                  Text(_tip!.actionLabel ?? 'OK', style: const TextStyle(fontSize: 14)),
+                ]),
               ),
             RetroButton(
-              focusNode: hasSuggestion ? null : Nav.suggestion,
+              focusNode: _tip?.action != null ? null : Nav.suggestion,
               color: Retro.panel,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               onPressed: () => AlfiReportScreen.open(context),
@@ -421,6 +398,84 @@ class _AlfiReportScreenState extends State<AlfiReportScreen> {
                     child: Text('${slotName(e.key)} sueles ver ${e.value.name} (${e.value.value} días).',
                         style: Retro.body(15)),
                   ),
+              ]),
+              _section('ANUNCIOS QUE HE APUNTADO', [
+                Text(
+                  a.sightings.isEmpty
+                      ? 'Todavía no he pillado ningún anuncio. Cuando vea uno, lo apunto aquí.'
+                      : 'Los guardo para bloquearlos. También los puede revisar SG Alfa desde el PC.',
+                  style: Retro.body(14),
+                ),
+                const SizedBox(height: 8),
+                for (final x in a.popups.take(8))
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('${x.appName.isEmpty ? x.app : x.appName} · ${x.times} vez${x.times == 1 ? '' : 'es'} · ${x.when}',
+                              style: Retro.body(14, weight: FontWeight.w800)),
+                          Text('«${x.text}»', maxLines: 2, overflow: TextOverflow.ellipsis, style: Retro.body(12)),
+                          if (x.buttons.isNotEmpty)
+                            Text('Botones: ${x.buttons.join(' · ')}', style: Retro.body(12, color: Retro.mustard)),
+                        ]),
+                      ),
+                      if (x.closeButton != null)
+                        RetroButton(
+                          color: Retro.teal,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          onPressed: () async {
+                            await Native.protection.invokeMethod('saveMacro', {
+                              'id': '',
+                              'name': 'Cerrar anuncio en ${x.appName.isEmpty ? x.app : x.appName}',
+                              'enabled': true,
+                              'trigger': 'BUTTON',
+                              'text': x.closeButton,
+                              'context': <String>[],
+                              'action': 'CLICK',
+                              'app': x.app,
+                              'delaySeconds': 0,
+                            });
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                content: Text('Listo: pulsaré «${x.closeButton}» en ${x.appName} cuando salga.'),
+                              ));
+                            }
+                          },
+                          child: const Text('CREAR CIERRE', style: TextStyle(fontSize: 12)),
+                        ),
+                    ]),
+                  ),
+                if (a.leakedDomains.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text('Dominios que se colaron:', style: Retro.body(14, weight: FontWeight.w800)),
+                  const SizedBox(height: 6),
+                  for (final x in a.leakedDomains.take(10))
+                    Row(children: [
+                      Expanded(child: Text('${x.domain} · ${x.times} vez${x.times == 1 ? '' : 'es'}', style: Retro.body(13))),
+                      RetroButton(
+                        color: Retro.red,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        onPressed: () => a.blockDomain(x.domain),
+                        child: const Text('BLOQUEAR', style: TextStyle(fontSize: 12)),
+                      ),
+                    ]),
+                ],
+                if (a.sightings.isNotEmpty)
+                  Row(children: [
+                    if (a.leakedDomains.length > 1)
+                      RetroButton(
+                        color: Retro.red,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        onPressed: a.blockAllLeaked,
+                        child: const Text('BLOQUEAR TODOS', style: TextStyle(fontSize: 12)),
+                      ),
+                    RetroButton(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      onPressed: a.clearAds,
+                      child: const Text('VACIAR LIBRETA', style: TextStyle(fontSize: 12)),
+                    ),
+                  ]),
               ]),
               _section('LIMPIEZA', [
                 Text(cacheText, style: Retro.body(14)),

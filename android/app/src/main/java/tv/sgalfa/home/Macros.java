@@ -214,7 +214,23 @@ public final class Macros {
                 button("tpl-pop-cerrar", "Pop-up de anuncio → Cerrar", "Cerrar", AD_WORDS),
                 button("tpl-pop-close", "Pop-up de anuncio → Close (inglés)", "Close", AD_WORDS),
                 button("tpl-pop-nogracias", "Pop-up de oferta → No, gracias", "No, gracias",
-                        Arrays.asList("oferta", "premium", "suscríbete", "suscribete", "promoción", "promocion"))
+                        Arrays.asList("oferta", "premium", "suscríbete", "suscribete", "promoción", "promocion")),
+                // Revisión SG Alfa: más avisos que interrumpen y se pueden quitar solos.
+                button("tpl-saltar-intro", "Saltar intro", "Saltar intro"),
+                button("tpl-omitir-intro", "Omitir introducción", "Omitir introducción"),
+                button("tpl-skip-intro", "Skip intro (inglés)", "Skip intro"),
+                button("tpl-saltar-resumen", "Saltar resumen", "Saltar resumen"),
+                button("tpl-skip-recap", "Skip recap (inglés)", "Skip recap"),
+                button("tpl-sigo-aqui", "¿Sigues ahí? → Sigo aquí", "Sigo aquí",
+                        Arrays.asList("sigues ahí", "sigues ahi", "estás ahí", "estas ahi")),
+                button("tpl-valorar", "«Valora la app» → Ahora no", "Ahora no",
+                        Arrays.asList("valora", "califica", "puntúa", "puntua", "reseña", "rate this app")),
+                button("tpl-actualizar", "Aviso de actualización → Más tarde", "Más tarde",
+                        Arrays.asList("actualiza", "nueva versión", "nueva version", "update available")),
+                button("tpl-saltar-corto", "Anuncio con «Saltar» → Saltar", "Saltar",
+                        Arrays.asList("anuncio", "publicidad", "advertisement")),
+                new Macro("tpl-siguiente", "Siguiente episodio (apagada: actívala si quieres maratón)", false,
+                        "BUTTON", "Siguiente episodio", Collections.emptyList(), "CLICK", "", 3)
         );
     }
 }

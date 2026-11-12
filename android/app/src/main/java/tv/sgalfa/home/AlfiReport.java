@@ -131,6 +131,10 @@ public final class AlfiReport {
                 out.put("todayMinutes", todayTotal / 60000);
                 out.put("weekMinutes", weekTotal / 60000);
                 out.put("today", top(today, names, 6));
+                Map<String, Long> yesterday = foregroundMs(usm, startOfToday() - DAY, startOfToday(), pkgs);
+                long yTotal = 0;
+                for (long v : yesterday.values()) yTotal += v;
+                out.put("yesterdayMinutes", yTotal / 60000);
                 out.put("week", top(week, names, 6));
 
                 // Lo aprendido: la app más vista en cada franja (3 semanas).
@@ -146,7 +150,9 @@ public final class AlfiReport {
                     if (p == null || !pkgs.contains(p) || e.getEventType() != UsageEvents.Event.MOVE_TO_FOREGROUND) continue;
                     lastUsed.put(p, e.getTimeStamp());
                     cal.setTimeInMillis(e.getTimeStamp());
-                    String s = slot(cal.get(Calendar.HOUR_OF_DAY));
+                    int dow = cal.get(Calendar.DAY_OF_WEEK);
+                    boolean weekend = dow == Calendar.SATURDAY || dow == Calendar.SUNDAY;
+                    String s = slot(cal.get(Calendar.HOUR_OF_DAY)) + (weekend ? "_finde" : "");
                     String key = p + "@" + s + "@" + (e.getTimeStamp() / DAY);
                     if (!counted.add(key)) continue; // una vez por día y franja
                     Map<String, Integer> m = bySlot.get(s);
@@ -157,7 +163,8 @@ public final class AlfiReport {
                     m.put(p, (m.containsKey(p) ? m.get(p) : 0) + 1);
                 }
                 Map<String, Object> slots = new LinkedHashMap<>();
-                for (String s : new String[]{"mañana", "tarde", "noche", "madrugada"}) {
+                for (String s : new String[]{"mañana", "tarde", "noche", "madrugada",
+                        "mañana_finde", "tarde_finde", "noche_finde", "madrugada_finde"}) {
                     Map<String, Integer> m = bySlot.get(s);
                     if (m == null) continue;
                     String best = null;
@@ -177,6 +184,39 @@ public final class AlfiReport {
                     }
                 }
                 out.put("slots", slots);
+
+                // Lo último que se vio (para «¿sigues con…?»).
+                String lastPkg = null;
+                long lastTs = 0;
+                for (Map.Entry<String, Long> en : lastUsed.entrySet()) {
+                    if (en.getValue() > lastTs) {
+                        lastTs = en.getValue();
+                        lastPkg = en.getKey();
+                    }
+                }
+                if (lastPkg != null) {
+                    Map<String, Object> l = new HashMap<>();
+                    l.put("package", lastPkg);
+                    l.put("name", names.get(lastPkg));
+                    l.put("minutesAgo", (now - lastTs) / 60000);
+                    out.put("last", l);
+                }
+
+                // Apps instaladas hace menos de 3 días.
+                List<Map<String, Object>> fresh = new ArrayList<>();
+                for (String p : pkgs) {
+                    try {
+                        long installed = c.getPackageManager().getPackageInfo(p, 0).firstInstallTime;
+                        if (now - installed < 3 * DAY) {
+                            Map<String, Object> m = new HashMap<>();
+                            m.put("package", p);
+                            m.put("name", names.get(p));
+                            fresh.add(m);
+                        }
+                    } catch (Exception ignored) {
+                    }
+                }
+                out.put("newApps", fresh);
 
                 // Apps olvidadas: instaladas por ti y sin abrir en 3 semanas.
                 PackageManager pm = c.getPackageManager();

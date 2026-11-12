@@ -39,6 +39,12 @@ class TodayModel extends ChangeNotifier with WidgetsBindingObserver {
   int get ads => (data['ads'] as num?)?.toInt() ?? 0;
   int get actions => (data['actions'] as num?)?.toInt() ?? 0;
   Map? get suggestion => data['suggestion'] is Map ? data['suggestion'] as Map : null;
+  bool get cleanDue => data['cleanDue'] == true;
+  bool get cleanWeekly => data['cleanWeekly'] != false;
+  int get cleanWeekday => (data['cleanWeekday'] as num?)?.toInt() ?? 2;
+  String get cleanLast => '${data['cleanLast'] ?? ''}';
+  bool get alfiToasts => data['alfiToasts'] != false;
+  int get missingTemplates => (data['missingTemplates'] as num?)?.toInt() ?? 0;
 
   void start() {
     WidgetsBinding.instance.addObserver(this);

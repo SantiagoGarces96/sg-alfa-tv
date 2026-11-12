@@ -24,8 +24,39 @@ class AlfiApp {
       : const [];
 }
 
+/// Algo que Alfi apuntó en su libreta: un pop-up de anuncio o un dominio que se coló.
+class AdSighting {
+  final String kind; // popup | dominio
+  final String when;
+  final int times;
+  final String app;
+  final String appName;
+  final String text;
+  final String domain;
+  final List<String> buttons;
+
+  const AdSighting(this.kind, this.when, this.times, this.app, this.appName, this.text, this.domain, this.buttons);
+
+  bool get isPopup => kind == 'popup';
+
+  /// El botón con más pinta de «cerrar» de los que tenía el pop-up.
+  String? get closeButton {
+    final re = RegExp(r'^(x|×|✕|cerrar|close|omitir|saltar|skip|no,? gracias|ahora no|continuar|cancelar|seguir viendo)',
+        caseSensitive: false);
+    for (final b in buttons) {
+      if (re.hasMatch(b.trim())) return b;
+    }
+    return null;
+  }
+}
+
 class AlfiModel extends ChangeNotifier {
   int todayMinutes = 0;
+  int yesterdayMinutes = 0;
+  AlfiApp? last;
+  int lastMinutesAgo = 0;
+  List<AlfiApp> newApps = const [];
+  List<AdSighting> sightings = const [];
   int weekMinutes = 0;
   List<AlfiApp> today = const [];
   List<AlfiApp> week = const [];
@@ -46,6 +77,11 @@ class AlfiModel extends ChangeNotifier {
       final r = await Native.launcher.invokeMethod<Map>('alfiReport');
       if (r == null) return;
       todayMinutes = (r['todayMinutes'] as num?)?.toInt() ?? 0;
+      yesterdayMinutes = (r['yesterdayMinutes'] as num?)?.toInt() ?? 0;
+      final l = r['last'];
+      last = l is Map ? AlfiApp('${l['package']}', '${l['name']}', 0) : null;
+      lastMinutesAgo = l is Map ? ((l['minutesAgo'] as num?)?.toInt() ?? 9999) : 9999;
+      newApps = AlfiApp.list(r['newApps'], 'none');
       weekMinutes = (r['weekMinutes'] as num?)?.toInt() ?? 0;
       today = AlfiApp.list(r['today'], 'minutes');
       week = AlfiApp.list(r['week'], 'minutes');
@@ -60,7 +96,70 @@ class AlfiModel extends ChangeNotifier {
       forgotten = AlfiApp.list(r['forgotten'], 'none');
       cache = AlfiApp.list(r['cache'], 'mb');
       cacheTotalMb = (r['cacheTotalMb'] as num?)?.toDouble() ?? 0;
+      await refreshAds(notify: false);
       loaded = true;
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  /// La libreta de anuncios (pop-ups y dominios que se colaron).
+  Future<void> refreshAds({bool notify = true}) async {
+    try {
+      final raw = await Native.protection.invokeMethod<List>('adLog');
+      _setAds(raw);
+      if (notify) notifyListeners();
+    } catch (_) {}
+  }
+
+  void _setAds(List? raw) {
+    sightings = (raw ?? const [])
+        .whereType<Map>()
+        .map((m) => AdSighting(
+              '${m['tipo']}',
+              '${m['cuando']}',
+              (m['veces'] as num?)?.toInt() ?? 1,
+              '${m['app'] ?? ''}',
+              '${m['nombre'] ?? ''}',
+              '${m['texto'] ?? ''}',
+              '${m['dominio'] ?? ''}',
+              (m['botones'] is List) ? (m['botones'] as List).map((e) => '$e').toList() : const <String>[],
+            ))
+        .toList();
+  }
+
+  List<AdSighting> get popups => sightings.where((x) => x.isPopup).toList();
+  List<AdSighting> get leakedDomains => sightings.where((x) => !x.isPopup).toList();
+
+  /// Pop-ups de hoy agrupados por app (la app con más anuncios primero).
+  List<MapEntry<String, int>> get adsByAppToday {
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final m = <String, int>{};
+    for (final x in popups) {
+      if (!x.when.startsWith(today)) continue;
+      final k = x.appName.isEmpty ? x.app : x.appName;
+      m[k] = (m[k] ?? 0) + x.times;
+    }
+    final list = m.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    return list;
+  }
+
+  Future<void> blockDomain(String d) async {
+    try {
+      _setAds(await Native.protection.invokeMethod<List>('blockDomain', d));
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> blockAllLeaked() async {
+    for (final d in leakedDomains.map((x) => x.domain).toSet().toList()) {
+      await blockDomain(d);
+    }
+  }
+
+  Future<void> clearAds() async {
+    try {
+      await Native.protection.invokeMethod('clearAdLog');
+      sightings = const [];
       notifyListeners();
     } catch (_) {}
   }

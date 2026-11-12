@@ -40,6 +40,12 @@ public class DnsBlockVpnService extends VpnService {
     private static final String KEY_WANTED = "adblock_wanted";
 
     private static volatile boolean running = false;
+    private static volatile boolean reload = false;
+
+    /** Se llama al bloquear un dominio desde la tele: la lista se recarga al momento. */
+    static void reloadBlocklist() {
+        reload = true;
+    }
     private ParcelFileDescriptor vpn;
     private Thread worker;
     private volatile Set<String> blocklist = new HashSet<>();
@@ -81,6 +87,7 @@ public class DnsBlockVpnService extends VpnService {
             }
         } catch (Exception ignored) {
         }
+        set.addAll(AdLog.userBlocklist(this));
         return set;
     }
 
@@ -156,6 +163,10 @@ public class DnsBlockVpnService extends VpnService {
                 if (dstPort != 53) continue;
                 byte[] query = slice(packet, ihl + 8, len);
 
+                if (reload) {
+                    reload = false;
+                    blocklist = loadBlocklist();
+                }
                 String host = qname(query);
                 byte[] answer;
                 if (host != null && isBlocked(host)) {
@@ -163,7 +174,11 @@ public class DnsBlockVpnService extends VpnService {
                     Stats.add(this, Stats.ADS);
                 } else {
                     answer = forward(socket, dstIp, query);
-                    if (answer != null && isNullAnswer(answer)) Stats.add(this, Stats.ADS); // filtrado por AdGuard
+                    if (answer != null && isNullAnswer(answer)) {
+                        Stats.add(this, Stats.ADS); // filtrado por AdGuard
+                    } else if (answer != null && host != null && AdLog.adLikeDomain(host)) {
+                        AdLog.dnsPassed(this, host); // se coló: Alfi lo apunta
+                    }
                 }
                 if (answer != null) {
                     output.write(buildUdpIpv4(dstIp, srcIp, dstPort, srcPort, answer));
