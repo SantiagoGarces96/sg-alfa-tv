@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sgalfa_autoclick_label">SG Alfa · Automatizaciones</string>
+    <string name="sgalfa_autoclick_description">Cierra solo los avisos «¿Sigues viendo?», «Continuar usando», los botones de saltar anuncio y los pop-ups de publicidad, según tus automatizaciones. No guarda ni envía lo que hay en pantalla.</string>
+</resources>
