@@ -46,6 +46,8 @@ jobs:
           cp build/app/outputs/flutter-apk/app-release.apk "dist/sg-alfa-home-$TAG.apk"
           cp build/app/outputs/flutter-apk/app-release.apk dist/sg-alfa-home.apk
           git tag -l --format='%(contents)' "$TAG" > notes.md
+          # Novedades como archivo: el actualizador las lee sin usar la API de GitHub.
+          cp notes.md dist/novedades.txt
       - uses: softprops/action-gh-release@v2
         with:
           name: SG Alfa Home ${{ github.ref_name }}

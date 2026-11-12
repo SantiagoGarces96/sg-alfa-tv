@@ -14,16 +14,12 @@ import android.provider.Settings;
 
 import androidx.core.content.FileProvider;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -62,21 +58,55 @@ public final class Updater {
         return false;
     }
 
-    private static String get(String url) throws Exception {
-        HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+    /**
+     * Última versión publicada, SIN la API de GitHub (que limita a 60 consultas por hora y casa):
+     * la página /releases/latest redirige a /releases/tag/<versión>.
+     */
+    private static String latestTag() throws Exception {
+        HttpURLConnection c = (HttpURLConnection) new URL("https://github.com/" + REPO + "/releases/latest").openConnection();
+        c.setInstanceFollowRedirects(false);
         c.setRequestProperty("User-Agent", UA);
-        c.setRequestProperty("Accept", "application/vnd.github+json");
         c.setConnectTimeout(10_000);
         c.setReadTimeout(15_000);
-        try (InputStream in = c.getInputStream()) {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            byte[] buf = new byte[16 * 1024];
-            int n;
-            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
-            return out.toString("UTF-8");
+        try {
+            String loc = c.getHeaderField("Location");
+            if (loc == null) throw new Exception("sin redirección (" + c.getResponseCode() + ")");
+            return loc.substring(loc.lastIndexOf('/') + 1);
         } finally {
             c.disconnect();
         }
+    }
+
+    /** Descarga un archivo de texto pequeño siguiendo redirecciones. */
+    private static String getText(String url) throws Exception {
+        String u = url;
+        for (int hop = 0; hop < 6; hop++) {
+            HttpURLConnection c = (HttpURLConnection) new URL(u).openConnection();
+            c.setInstanceFollowRedirects(false);
+            c.setRequestProperty("User-Agent", UA);
+            c.setConnectTimeout(10_000);
+            c.setReadTimeout(15_000);
+            int code = c.getResponseCode();
+            if (code >= 300 && code < 400) {
+                u = new URL(new URL(u), c.getHeaderField("Location")).toString();
+                c.disconnect();
+                continue;
+            }
+            if (code != 200) {
+                c.disconnect();
+                return "";
+            }
+            try (InputStream in = c.getInputStream()) {
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                byte[] buf = new byte[8 * 1024];
+                int n;
+                while ((n = in.read(buf)) > 0 && out.size() < 64 * 1024) out.write(buf, 0, n);
+                return out.toString("UTF-8");
+            } finally {
+                c.disconnect();
+            }
+        }
+        return "";
     }
 
     /** {current, latest, available, notes, url}. Se llama desde un hilo aparte. */
@@ -86,24 +116,15 @@ public final class Updater {
         m.put("current", current);
         m.put("available", false);
         try {
-            JSONObject r = new JSONObject(get("https://api.github.com/repos/" + REPO + "/releases/latest"));
-            String tag = r.optString("tag_name", "");
-            String apk = null;
-            JSONArray assets = r.optJSONArray("assets");
-            if (assets != null) {
-                for (int i = 0; i < assets.length(); i++) {
-                    JSONObject a = assets.getJSONObject(i);
-                    String name = a.optString("name");
-                    if (name.equals("sg-alfa-home.apk")) apk = a.optString("browser_download_url");
-                    else if (apk == null && name.endsWith(".apk")) apk = a.optString("browser_download_url");
-                }
-            }
+            String tag = latestTag();
+            String base = "https://github.com/" + REPO + "/releases/download/" + tag + "/";
             m.put("latest", tag);
-            m.put("notes", r.optString("body", ""));
-            m.put("url", apk);
-            m.put("available", apk != null && newer(tag, current));
+            m.put("url", base + "sg-alfa-home.apk");
+            boolean newer = newer(tag, current);
+            m.put("available", newer);
+            m.put("notes", newer ? getText(base + "novedades.txt") : "");
         } catch (Exception e) {
-            m.put("error", e.getClass().getSimpleName());
+            m.put("error", e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
         }
         return m;
     }
