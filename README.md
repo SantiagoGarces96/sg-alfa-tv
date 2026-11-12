@@ -54,7 +54,8 @@ Protección, temas (con 6 fondos propios), apps ocultas y acceso a los ajustes d
 
 - **Desde el teléfono**, con la app [SG Alfa (tv-debloater)](https://github.com/SantiagoGarces96/tv-debloater):
   botón «Poner la pantalla de inicio SG Alfa».
-- **Con Downloader** en la tele: descarga el APK de la última versión publicada en este repositorio.
+- **Con Downloader** en la tele: `https://github.com/SantiagoGarces96/sg-alfa-tv/releases/latest/download/sg-alfa-home.apk`
+- **Se actualiza sola**: cuando hay versión nueva, Alfi avisa con el botón «ACTUALIZAR» (también en Ajustes → Acerca de).
 
 Después, para que funcionen las automatizaciones: Ajustes de SG Alfa → Protección → «Servicio de
 automatizaciones» y actívalo en Accesibilidad. Para el bloqueo de anuncios, actívalo y acepta el aviso de VPN

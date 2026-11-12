@@ -11,6 +11,8 @@ import '../core/alfi_model.dart';
 import '../core/apps_model.dart';
 import '../core/device_model.dart';
 import '../core/native.dart';
+import '../core/update_model.dart';
+import 'update_dialog.dart';
 import 'automations_screen.dart';
 import 'home_widgets.dart';
 
@@ -47,6 +49,18 @@ List<AlfiTip> alfiTips(BuildContext context, {required VoidCallback openReport})
 
   final hello = h >= 6 && h < 12 ? '¡Buenos días!' : (h >= 12 && h < 19 ? '¡Buenas tardes!' : '¡Buenas noches!');
   tips.add(AlfiTip('$hello Soy Alfi y cuido de $your.', 1000));
+
+  // --- Versión nueva de SG Alfa Home.
+  final up = context.read<UpdateModel>();
+  if (up.available) {
+    tips.add(AlfiTip(
+      '¡Hay una versión nueva de SG Alfa Home (${up.latest})! La instalo encima y no pierdes nada.',
+      99,
+      actionLabel: 'ACTUALIZAR',
+      actionIcon: Icons.system_update_alt,
+      action: (ctx) => showUpdateDialog(ctx),
+    ));
+  }
 
   // --- Anuncios: lo que ha visto y lo que se coló.
   final byApp = a.adsByAppToday;

@@ -89,6 +89,22 @@ public final class LauncherChannel {
                 case "network":
                     result.success(network());
                     break;
+                case "checkUpdate":
+                    io.execute(() -> {
+                        Map<String, Object> r = Updater.check(activity);
+                        main.post(() -> result.success(r));
+                    });
+                    break;
+                case "downloadUpdate":
+                    Updater.download(activity, (String) call.arguments());
+                    result.success(true);
+                    break;
+                case "updateProgress":
+                    result.success(Updater.progress());
+                    break;
+                case "installUpdate":
+                    result.success(Updater.install(activity));
+                    break;
                 case "alfiReport":
                     io.execute(() -> {
                         Map<String, Object> r = AlfiReport.build(activity);

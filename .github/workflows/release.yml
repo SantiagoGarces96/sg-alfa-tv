@@ -1,0 +1,54 @@
+name: Publicar versión
+
+# Al subir una etiqueta (p. ej. 2.3.0): compila el APK firmado y lo publica en Releases.
+# Las novedades salen del mensaje de la etiqueta; Alfi las enseña al actualizar.
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git fetch --force --tags
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.41.9"
+          channel: stable
+          cache: true
+      - name: Clave de firma (la misma siempre, para actualizar sin desinstalar)
+        env:
+          SIGNING_JKS_FILE_BASE64: ${{ secrets.SIGNING_JKS_FILE_BASE64 }}
+        run: |
+          test -n "$SIGNING_JKS_FILE_BASE64" || { echo "Falta el secreto SIGNING_JKS_FILE_BASE64"; exit 1; }
+          echo -n "$SIGNING_JKS_FILE_BASE64" | base64 -d > android/app/upload-keystore.jks
+      - run: flutter pub get
+      - name: Compilar
+        env:
+          SIGNING_KEYSTORE_PASSWORD: ${{ secrets.SIGNING_KEYSTORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          flutter build apk --release --build-name="$TAG"
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/sg-alfa-home-$TAG.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk dist/sg-alfa-home.apk
+          git tag -l --format='%(contents)' "$TAG" > notes.md
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: SG Alfa Home ${{ github.ref_name }}
+          body_path: notes.md
+          files: dist/*
+          fail_on_unmatched_files: true

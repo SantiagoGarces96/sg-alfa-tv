@@ -11,6 +11,8 @@ import '../core/native.dart';
 import '../core/device_model.dart';
 import '../core/theme_model.dart';
 import 'mascot.dart';
+import 'update_dialog.dart';
+import '../core/update_model.dart';
 import 'automations_screen.dart';
 import 'home_widgets.dart';
 import 'retro.dart';
@@ -26,6 +28,7 @@ Future<void> showSettingsPanel(BuildContext context, {String? page}) => showGene
           ChangeNotifierProvider.value(value: context.read<AppsModel>()),
           ChangeNotifierProvider.value(value: context.read<ThemeModel>()),
           ChangeNotifierProvider.value(value: context.read<DeviceModel>()),
+          ChangeNotifierProvider.value(value: context.read<UpdateModel>()),
           ChangeNotifierProvider.value(value: context.read<TodayModel>()),
         ],
         child: _Panel(initialPage: page),
@@ -228,6 +231,7 @@ class _MainPage extends StatelessWidget {
       _Row(
         icon: Icons.info_outline,
         title: 'Acerca de SG Alfa Home',
+        subtitle: context.watch<UpdateModel>().available ? '¡Hay una versión nueva!' : null,
         onTap: () => Navigator.of(context).push(_route(const _AboutPage())),
       ),
     ]);
@@ -382,7 +386,7 @@ class _AboutPage extends StatelessWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('SG ALFA HOME', style: Retro.title(28)),
               const SizedBox(height: 8),
-              RetroSticker('VERSIÓN 2.0', color: Retro.mustard, textColor: Retro.ink),
+              RetroSticker('VERSIÓN ${context.watch<UpdateModel>().current}', color: Retro.mustard),
             ]),
           ),
         ]),
@@ -397,13 +401,25 @@ class _AboutPage extends StatelessWidget {
         const SizedBox(height: 20),
         _Row(
           autofocus: true,
+          icon: Icons.system_update_alt,
+          title: context.watch<UpdateModel>().available
+              ? '¡Actualizar a la ${context.watch<UpdateModel>().latest}!'
+              : 'Buscar actualizaciones',
+          subtitle: 'Tienes la ${context.watch<UpdateModel>().current}',
+          onTap: () {
+            final u = context.read<UpdateModel>();
+            if (!u.available) u.check();
+            showUpdateDialog(context);
+          },
+        ),
+        _Row(
           icon: Icons.description_outlined,
           title: 'Licencias de componentes',
           subtitle: 'Flutter, tipografía Bungee y librerías usadas',
           onTap: () => showLicensePage(
             context: context,
             applicationName: 'SG Alfa Home',
-            applicationVersion: '2.0',
+            applicationVersion: context.read<UpdateModel>().current,
           ),
         ),
       ]);

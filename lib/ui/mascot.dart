@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import '../core/alfi_model.dart';
 import '../core/apps_model.dart';
 import '../core/native.dart';
+import '../core/update_model.dart';
 import '../core/device_model.dart';
 import 'alfi_brain.dart';
 import 'home_widgets.dart';
@@ -197,6 +198,7 @@ class _AlfiCardState extends State<AlfiCard> {
   Widget build(BuildContext context) {
     final t = context.watch<TodayModel>();
     final a = context.watch<AlfiModel>();
+    context.watch<UpdateModel>();
 
     return Container(
       width: 420,

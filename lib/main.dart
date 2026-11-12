@@ -12,6 +12,7 @@ import 'core/alfi_model.dart';
 import 'core/apps_model.dart';
 import 'core/device_model.dart';
 import 'core/theme_model.dart';
+import 'core/update_model.dart';
 import 'ui/home_screen.dart';
 import 'ui/home_widgets.dart';
 import 'ui/retro.dart';
@@ -32,6 +33,7 @@ void main() {
   final device = DeviceModel()..load();
   final today = TodayModel()..start();
   final alfi = AlfiModel()..start();
+  final updates = UpdateModel()..start();
 
   runApp(MultiProvider(
     providers: [
@@ -40,6 +42,7 @@ void main() {
       ChangeNotifierProvider.value(value: device),
       ChangeNotifierProvider.value(value: today),
       ChangeNotifierProvider.value(value: alfi),
+      ChangeNotifierProvider.value(value: updates),
     ],
     child: const SgAlfaApp(),
   ));
