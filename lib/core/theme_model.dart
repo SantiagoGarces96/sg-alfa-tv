@@ -320,7 +320,8 @@ class SgThemes {
     'tema': 'Degradado del tema',
   };
 
-  static String? wallpaperAsset(String id) => id == 'tema' ? null : 'assets/wallpapers/$id.jpg';
+  static String? wallpaperAsset(String id) =>
+      id == 'tema' || id.startsWith('file:') || !wallpapers.containsKey(id) ? null : 'assets/wallpapers/$id.jpg';
 
   /// Paleta de colores para el editor (retro, neón, pastel y neutros).
   static const palette = [

@@ -3,6 +3,8 @@
  * Copyright (c) 2026 SG Alfa.
  */
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -775,8 +777,20 @@ class _ThemeEditorState extends State<_ThemeEditor> {
       const SizedBox(height: 6),
       Text('INICIO', style: Retro.title(16)),
       const SizedBox(height: 10),
-      _option(Icons.wallpaper, 'Fondo de pantalla', SgThemes.wallpapers[t.wallpaper] ?? t.wallpaper,
-          () => _set(t.copyWith(wallpaper: _cycle(SgThemes.wallpapers.keys.toList(), t.wallpaper)))),
+      _Row(
+        icon: Icons.wallpaper,
+        title: 'Fondo de pantalla',
+        subtitle: t.wallpaper.startsWith('file:') ? 'Una foto tuya' : (SgThemes.wallpapers[t.wallpaper] ?? t.wallpaper),
+        trailing: Icon(Icons.chevron_right, color: Retro.cream),
+        onTap: () {
+          // Para ver el fondo del tema hay que quitar el fondo general, si había uno.
+          if (_model.wallpaperOverride.isNotEmpty) _model.setWallpaperOverride('');
+          Navigator.of(context).push(_route(_WallpaperPage(
+            current: t.wallpaper,
+            onSelect: (id) => _set(_t.copyWith(wallpaper: id)),
+          )));
+        },
+      ),
       _option(Icons.grid_view, 'Tamaño de las apps', sizes[t.tileSize]!,
           () => _set(t.copyWith(tileSize: _cycle(sizes.keys.toList(), t.tileSize)))),
       _option(Icons.dock, 'Dock de favoritas', docks[t.dock]!,
@@ -869,34 +883,77 @@ String _dayName(int calendarDay) => const {
 
 String _wallpaperName(ThemeModel m) {
   final o = m.wallpaperOverride;
-  if (o.isEmpty) return 'El del tema (${SgThemes.wallpapers[m.current.wallpaper] ?? m.current.wallpaper})';
+  final w = m.current.wallpaper;
+  if (o.isEmpty) return 'El del tema (${w.startsWith('file:') ? 'una foto tuya' : SgThemes.wallpapers[w] ?? w})';
   if (o.startsWith('file:')) return 'Tu imagen';
   return SgThemes.wallpapers[o] ?? o;
 }
 
-class _WallpaperPage extends StatelessWidget {
-  const _WallpaperPage();
+/// Elige fondo. Sin [onSelect] es el fondo general (vale para TODOS los temas);
+/// con [onSelect] es el fondo propio de un tema (desde el editor).
+class _WallpaperPage extends StatefulWidget {
+  final String? current;
+  final ValueChanged<String>? onSelect;
+
+  const _WallpaperPage({this.current, this.onSelect});
+
+  @override
+  State<_WallpaperPage> createState() => _WallpaperPageState();
+}
+
+class _WallpaperPageState extends State<_WallpaperPage> {
+  String? _picked;
+
+  bool get _forTheme => widget.onSelect != null;
+
+  void _choose(ThemeModel m, String id) {
+    if (_forTheme) {
+      setState(() => _picked = id);
+      widget.onSelect!(id);
+    } else {
+      m.setWallpaperOverride(id);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final m = context.watch<ThemeModel>();
-    Widget choice(String id, String name, {bool autofocus = false}) {
-      final selected = m.wallpaperOverride == id;
-      final asset = id.isEmpty ? SgThemes.wallpaperAsset(m.current.wallpaper) : SgThemes.wallpaperAsset(id);
+    final current = _forTheme ? (_picked ?? widget.current ?? '') : m.wallpaperOverride;
+    final fileNow = current.startsWith('file:');
+
+    Widget preview(String id) {
+      if (id.isEmpty) id = m.current.wallpaper;
+      if (id.startsWith('file:')) {
+        final file = File(id.substring(5));
+        if (file.existsSync()) return Image.file(file, fit: BoxFit.cover, cacheWidth: 256);
+        return const SizedBox();
+      }
+      final asset = SgThemes.wallpaperAsset(id);
+      if (asset != null) return Image.asset(asset, fit: BoxFit.cover, cacheWidth: 256);
+      // 'tema': degradado con los colores del tema.
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [m.current.night, m.current.primary.withValues(alpha: 0.6)]),
+        ),
+      );
+    }
+
+    Widget choice(String id, String name) {
+      final selected = current == id;
       return Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: RetroButton(
-          autofocus: autofocus,
           color: selected ? Retro.mustard : Retro.panel,
           focusColor: Retro.red,
           padding: const EdgeInsets.all(8),
-          onPressed: () => m.setWallpaperOverride(id),
+          onPressed: () => _choose(m, id),
           child: Row(children: [
             Container(
               width: 128,
               height: 72,
+              clipBehavior: Clip.hardEdge,
               decoration: BoxDecoration(border: Border.all(color: Retro.ink, width: 2.5), color: m.current.night),
-              child: asset == null ? null : Image.asset(asset, fit: BoxFit.cover, cacheWidth: 256),
+              child: preview(id),
             ),
             const SizedBox(width: 12),
             Expanded(child: Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800))),
@@ -906,28 +963,36 @@ class _WallpaperPage extends StatelessWidget {
       );
     }
 
-    return _Page(title: 'FONDO', children: [
+    return _Page(title: _forTheme ? 'FONDO DEL TEMA' : 'FONDO', children: [
+      Text(
+        _forTheme
+            ? 'Este fondo será parte de tu tema. Se ve al momento.'
+            : 'Este fondo se usa con TODOS los temas. Elige «El del tema» para que cada tema use el suyo.',
+        style: Retro.body(14, color: Retro.cream.withValues(alpha: 0.85), weight: FontWeight.w500),
+      ),
+      const SizedBox(height: 12),
       _Row(
         autofocus: true,
         icon: Icons.photo_library,
         title: 'Mis imágenes',
-        subtitle: m.wallpaperOverride.startsWith('file:')
-            ? 'Ahora mismo tienes una imagen tuya'
-            : 'Fotos guardadas en el deco o en un USB',
+        subtitle: fileNow ? 'Ahora mismo: una foto tuya' : 'Fotos guardadas en el deco o en un USB',
         trailing: Icon(Icons.chevron_right, color: Retro.cream),
-        onTap: () => Navigator.of(context).push(_route(const _GalleryPage())),
+        onTap: () => Navigator.of(context).push(_route(_GalleryPage(onPicked: (id) => _choose(m, id)))),
       ),
       const SizedBox(height: 6),
-      choice('', 'El del tema'),
+      if (fileNow) choice(current, 'Tu foto'),
+      if (!_forTheme) choice('', 'El del tema'),
       for (final e in SgThemes.wallpapers.entries)
-        if (e.key != 'tema') choice(e.key, e.value),
+        if (_forTheme || e.key != 'tema') choice(e.key, e.value),
     ]);
   }
 }
 
 /// Galería de tus imágenes: elige una con el mando y queda de fondo.
 class _GalleryPage extends StatefulWidget {
-  const _GalleryPage();
+  final ValueChanged<String> onPicked;
+
+  const _GalleryPage({required this.onPicked});
 
   @override
   State<_GalleryPage> createState() => _GalleryPageState();
@@ -979,7 +1044,7 @@ class _GalleryPageState extends State<_GalleryPage> with WidgetsBindingObserver 
     if (!mounted) return;
     setState(() => _applying = null);
     if (path != null) {
-      await context.read<ThemeModel>().setWallpaperOverride('file:$path');
+      widget.onPicked('file:$path');
       // Vuelve a «Fondo», que ya dice «Ahora mismo tienes una imagen tuya».
       if (mounted) Navigator.of(context).maybePop();
     }

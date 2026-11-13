@@ -105,9 +105,13 @@ public final class Wallpapers {
             File dir = new File(c.getFilesDir(), "wallpapers");
             //noinspection ResultOfMethodCallIgnored
             dir.mkdirs();
+            // Cada tema puede tener su propia foto: guardamos las 12 más recientes.
             File[] old = dir.listFiles();
-            if (old != null) for (File f : old) //noinspection ResultOfMethodCallIgnored
-                f.delete();
+            if (old != null && old.length >= 12) {
+                java.util.Arrays.sort(old, (a, b) -> Long.compare(a.lastModified(), b.lastModified()));
+                for (int i = 0; i <= old.length - 12; i++) //noinspection ResultOfMethodCallIgnored
+                    old[i].delete();
+            }
             File f = new File(dir, "mi-fondo-" + System.currentTimeMillis() + ".jpg");
             try (FileOutputStream out = new FileOutputStream(f)) {
                 bmp.compress(Bitmap.CompressFormat.JPEG, 90, out);
