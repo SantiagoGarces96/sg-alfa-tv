@@ -261,7 +261,10 @@ public class AutoClickService extends AccessibilityService {
             if (s == null) return;
             Object again = evaluate(m, s);
             if (again instanceof AccessibilityNodeInfo) {
-                boolean ok = tap((AccessibilityNodeInfo) again);
+                AccessibilityNodeInfo n = (AccessibilityNodeInfo) again;
+                boolean ok = tap(n);
+                AccessibilityNodeInfo parent = n.getParent();
+                if (parent != null) parent.performAction(AccessibilityNodeInfo.ACTION_CLICK);
                 android.util.Log.i("SGAlfa", "Reintento «" + m.name + "»: toque=" + ok);
                 retry(m, left - 1);
             }
@@ -275,6 +278,12 @@ public class AutoClickService extends AccessibilityService {
             Object again = evaluate(m, fresh);
             if (again instanceof AccessibilityNodeInfo) node = (AccessibilityNodeInfo) again;
         }
+        android.graphics.Rect r = new android.graphics.Rect();
+        node.getBoundsInScreen(r);
+        android.util.Log.i("SGAlfa", "Botón «" + label(node) + "» " + node.getClassName() + " en " + r.toShortString()
+                + " clicable=" + node.isClickable() + " ventana=" + (fresh == null ? "?" : fresh.pkg));
+        // En TV (navegadores web) enfocar primero ayuda a que el clic llegue.
+        node.performAction(AccessibilityNodeInfo.ACTION_FOCUS);
         if (click(node)) return true;
         return tap(node);
     }
@@ -288,10 +297,22 @@ public class AutoClickService extends AccessibilityService {
             android.graphics.Path p = new android.graphics.Path();
             p.moveTo(r.exactCenterX(), r.exactCenterY());
             android.accessibilityservice.GestureDescription g = new android.accessibilityservice.GestureDescription.Builder()
-                    .addStroke(new android.accessibilityservice.GestureDescription.StrokeDescription(p, 0, 60))
+                    .addStroke(new android.accessibilityservice.GestureDescription.StrokeDescription(p, 0, 100))
                     .build();
-            return dispatchGesture(g, null, null);
+            final String where = r.toShortString();
+            return dispatchGesture(g, new GestureResultCallback() {
+                @Override
+                public void onCompleted(android.accessibilityservice.GestureDescription d) {
+                    android.util.Log.i("SGAlfa", "Toque hecho en " + where);
+                }
+
+                @Override
+                public void onCancelled(android.accessibilityservice.GestureDescription d) {
+                    android.util.Log.i("SGAlfa", "Toque cancelado en " + where);
+                }
+            }, null);
         } catch (Exception e) {
+            android.util.Log.i("SGAlfa", "Toque falló: " + e);
             return false;
         }
     }
@@ -308,7 +329,9 @@ public class AutoClickService extends AccessibilityService {
         int hops = 0;
         while (current != null && hops <= 4) {
             if (current.isClickable() && current.isEnabled()) {
-                return current.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                boolean ok = current.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                android.util.Log.i("SGAlfa", "Clic de accesibilidad (salto " + hops + "): " + ok);
+                return ok;
             }
             current = current.getParent();
             hops++;

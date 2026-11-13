@@ -41,7 +41,8 @@ jobs:
           SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
           TAG="${GITHUB_REF_NAME}"
-          flutter build apk --release --build-name="$TAG"
+          # «2.3.7-prueba1» se compila como 2.3.7 y se publica como pre-lanzamiento (no le llega a nadie).
+          flutter build apk --release --build-name="${TAG%%-*}"
           mkdir -p dist
           cp build/app/outputs/flutter-apk/app-release.apk "dist/sg-alfa-home-$TAG.apk"
           cp build/app/outputs/flutter-apk/app-release.apk dist/sg-alfa-home.apk
@@ -54,3 +55,4 @@ jobs:
           body_path: notes.md
           files: dist/*
           fail_on_unmatched_files: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
