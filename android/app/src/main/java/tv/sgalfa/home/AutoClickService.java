@@ -30,7 +30,7 @@ public class AutoClickService extends AccessibilityService {
     static final String PREFS = "autoclick";
     static final String KEY_MACROS = "macros";
     private static final int MAX_DEPTH = 40;
-    private static final int MAX_NODES = 600;
+    private static final int MAX_NODES = 350;
 
     /** El servicio activo (para lanzar la limpieza desde la pantalla de inicio). */
     static volatile AutoClickService instance;
@@ -120,11 +120,19 @@ public class AutoClickService extends AccessibilityService {
         if ("BUTTON".equals(m.trigger)) {
             for (AccessibilityNodeInfo n : s.nodes) {
                 String l = label(n);
-                if (l != null && Macros.buttonMatches(m, l, s.screen, s.pkg)) return n;
+                if (l == null || l.trim().length() > m.text.trim().length() + 12) continue;
+                if (!pressable(n)) continue;
+                if (Macros.buttonMatches(m, l, s.screen, s.pkg)) return n;
             }
             return null;
         }
         return Macros.textMatches(m, s.screen, s.pkg) ? Boolean.TRUE : null;
+    }
+
+    private static boolean pressable(AccessibilityNodeInfo n) {
+        if (n.isClickable()) return true;
+        AccessibilityNodeInfo p = n.getParent();
+        return p != null && p.isClickable();
     }
 
     private final Map<String, Long> lastAdCheck = new HashMap<>();
@@ -173,8 +181,41 @@ public class AutoClickService extends AccessibilityService {
 
     private final Set<String> announced = new HashSet<>();
 
+    // Apps donde nunca hay nada que cerrar: no se leen (teclados, barra del sistema, inicio).
+    private static final Set<String> IGNORE = new HashSet<>(java.util.Arrays.asList(
+            "com.android.systemui", "com.google.android.inputmethod.latin", "com.samsung.android.honeyboard",
+            "com.touchtype.swiftkey", "com.miui.home", "com.mi.android.globallauncher", "com.sec.android.app.launcher",
+            "com.google.android.apps.nexuslauncher", "com.android.launcher3", "com.google.android.tvlauncher",
+            "com.google.android.apps.tv.launcherx", "com.spocky.projengmenu"));
+    private static final long SETTLE_MS = 600;
+    private long lastScan;
+    private boolean scanQueued;
+    private final Runnable queuedScan = () -> {
+        scanQueued = false;
+        scan();
+    };
+
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
+        CharSequence p = event.getPackageName();
+        String pkg = p == null ? "" : p.toString();
+        boolean cleaning = cleaner != null && cleaner.running();
+        if (!cleaning && (pkg.equals(getPackageName()) || IGNORE.contains(pkg))) return;
+        // Leer la pantalla como mucho una vez cada 0,6 s: así las apps van fluidas al deslizar.
+        long now = SystemClock.uptimeMillis();
+        boolean windowChanged = event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED;
+        if (cleaning || (windowChanged && now - lastScan > 250) || now - lastScan >= SETTLE_MS) {
+            handler.removeCallbacks(queuedScan);
+            scanQueued = false;
+            scan();
+        } else if (!scanQueued) {
+            scanQueued = true;
+            handler.postDelayed(queuedScan, SETTLE_MS - (now - lastScan));
+        }
+    }
+
+    private void scan() {
+        lastScan = SystemClock.uptimeMillis();
         Snapshot s = snapshot();
         if (s == null) return;
         if (cleaner != null && cleaner.running()) {
@@ -188,6 +229,8 @@ public class AutoClickService extends AccessibilityService {
             Long last = lastRun.get(m.id);
             if (last != null && now - last < cooldown(m)) continue;
             if (tooMany(m.id, now)) continue;
+            Long until = givenUp.get(m.id + "@" + s.pkg);
+            if (until != null && now < until) continue;
             Object hit = evaluate(m, s);
             if (hit == null) continue;
             lastRun.put(m.id, now);
@@ -225,48 +268,59 @@ public class AutoClickService extends AccessibilityService {
         if (hit != null) perform(m, hit);
     }
 
+    /** Automatizaciones que no consiguieron cerrar su aviso en una app: se dejan descansar. */
+    private final Map<String, Long> givenUp = new HashMap<>();
+
     private void perform(Macros.Macro m, Object hit) {
         noteRun(m.id);
-        Stats.add(this, Stats.ACTIONS);
-        if (AlfiOverlay.enabled(this)) {
-            String what;
-            switch (m.action) {
-                case "BACK": what = "Cerré «" + m.name + "» por ti."; break;
-                case "HOME": what = "Te llevé al inicio («" + m.name + "»)."; break;
-                default: what = "¡Pulsé «" + m.text.trim() + "» por ti!";
-            }
-            AlfiOverlay.say(this, what, 3500);
-        }
         switch (m.action) {
             case "BACK":
                 performGlobalAction(GLOBAL_ACTION_BACK);
+                done(m);
                 break;
             case "HOME":
                 performGlobalAction(GLOBAL_ACTION_HOME);
+                done(m);
                 break;
             default:
                 if (hit instanceof AccessibilityNodeInfo) {
-                    boolean ok = press(m, (AccessibilityNodeInfo) hit);
-                    android.util.Log.i("SGAlfa", "Automatización «" + m.name + "»: pulsado=" + ok);
-                    // Comprobar que el aviso se fue; si sigue ahí, volver a intentarlo (hasta 2 veces).
-                    retry(m, 2);
+                    Snapshot before = snapshot();
+                    press(m, (AccessibilityNodeInfo) hit);
+                    verify(m, before == null ? null : before.pkg, 2);
                 }
         }
     }
 
-    private void retry(Macros.Macro m, int left) {
-        if (left <= 0) return;
+    /** Cuenta la acción y Alfi lo anuncia (solo cuando de verdad funcionó). */
+    private void done(Macros.Macro m) {
+        Stats.add(this, Stats.ACTIONS);
+        android.util.Log.i("SGAlfa", "Hecho: «" + m.name + "»");
+        if (!AlfiOverlay.enabled(this)) return;
+        String what;
+        switch (m.action) {
+            case "BACK": what = "Cerré «" + m.name + "» por ti."; break;
+            case "HOME": what = "Te llevé al inicio («" + m.name + "»)."; break;
+            default: what = "¡Pulsé «" + m.text.trim() + "» por ti!";
+        }
+        AlfiOverlay.say(this, what, 3500);
+    }
+
+    /** Un momento después: ¿se fue el botón? Si sigue, otro intento; si no hay manera, se deja. */
+    private void verify(Macros.Macro m, String pkg, int left) {
         handler.postDelayed(() -> {
             Snapshot s = snapshot();
-            if (s == null) return;
-            Object again = evaluate(m, s);
-            if (again instanceof AccessibilityNodeInfo) {
+            Object again = s == null ? null : evaluate(m, s);
+            if (!(again instanceof AccessibilityNodeInfo)) {
+                done(m);
+                return;
+            }
+            if (left > 0) {
                 AccessibilityNodeInfo n = (AccessibilityNodeInfo) again;
-                boolean ok = tap(n);
-                AccessibilityNodeInfo parent = n.getParent();
-                if (parent != null) parent.performAction(AccessibilityNodeInfo.ACTION_CLICK);
-                android.util.Log.i("SGAlfa", "Reintento «" + m.name + "»: toque=" + ok);
-                retry(m, left - 1);
+                if (!tap(n)) click(n);
+                verify(m, pkg, left - 1);
+            } else {
+                givenUp.put(m.id + "@" + (pkg == null ? s.pkg : pkg), SystemClock.uptimeMillis() + 10 * 60_000L);
+                android.util.Log.i("SGAlfa", "No se pudo: «" + m.name + "» en " + s.pkg + " (lo dejo 10 min)");
             }
         }, 800);
     }
@@ -278,18 +332,17 @@ public class AutoClickService extends AccessibilityService {
             Object again = evaluate(m, fresh);
             if (again instanceof AccessibilityNodeInfo) node = (AccessibilityNodeInfo) again;
         }
-        android.graphics.Rect r = new android.graphics.Rect();
-        node.getBoundsInScreen(r);
-        android.util.Log.i("SGAlfa", "Botón «" + label(node) + "» " + node.getClassName() + " en " + r.toShortString()
-                + " clicable=" + node.isClickable() + " ventana=" + (fresh == null ? "?" : fresh.pkg));
-        // En TV (navegadores web) enfocar primero ayuda a que el clic llegue.
         node.performAction(AccessibilityNodeInfo.ACTION_FOCUS);
         if (click(node)) return true;
         return tap(node);
     }
 
-    /** Toque en el centro del botón, como haría un dedo (para apps que ignoran el clic de accesibilidad). */
+    private Boolean touch;
+
+    /** Toque en el centro del botón, como haría un dedo. En aparatos sin pantalla táctil (decos, teles) no se usa. */
     private boolean tap(AccessibilityNodeInfo node) {
+        if (touch == null) touch = getPackageManager().hasSystemFeature(android.content.pm.PackageManager.FEATURE_TOUCHSCREEN);
+        if (!touch) return false;
         try {
             android.graphics.Rect r = new android.graphics.Rect();
             node.getBoundsInScreen(r);
@@ -297,22 +350,10 @@ public class AutoClickService extends AccessibilityService {
             android.graphics.Path p = new android.graphics.Path();
             p.moveTo(r.exactCenterX(), r.exactCenterY());
             android.accessibilityservice.GestureDescription g = new android.accessibilityservice.GestureDescription.Builder()
-                    .addStroke(new android.accessibilityservice.GestureDescription.StrokeDescription(p, 0, 100))
+                    .addStroke(new android.accessibilityservice.GestureDescription.StrokeDescription(p, 0, 80))
                     .build();
-            final String where = r.toShortString();
-            return dispatchGesture(g, new GestureResultCallback() {
-                @Override
-                public void onCompleted(android.accessibilityservice.GestureDescription d) {
-                    android.util.Log.i("SGAlfa", "Toque hecho en " + where);
-                }
-
-                @Override
-                public void onCancelled(android.accessibilityservice.GestureDescription d) {
-                    android.util.Log.i("SGAlfa", "Toque cancelado en " + where);
-                }
-            }, null);
+            return dispatchGesture(g, null, null);
         } catch (Exception e) {
-            android.util.Log.i("SGAlfa", "Toque falló: " + e);
             return false;
         }
     }
@@ -329,9 +370,7 @@ public class AutoClickService extends AccessibilityService {
         int hops = 0;
         while (current != null && hops <= 4) {
             if (current.isClickable() && current.isEnabled()) {
-                boolean ok = current.performAction(AccessibilityNodeInfo.ACTION_CLICK);
-                android.util.Log.i("SGAlfa", "Clic de accesibilidad (salto " + hops + "): " + ok);
-                return ok;
+                return current.performAction(AccessibilityNodeInfo.ACTION_CLICK);
             }
             current = current.getParent();
             hops++;
