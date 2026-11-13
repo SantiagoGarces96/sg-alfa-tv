@@ -16,70 +16,10 @@ import '../core/native.dart';
 import '../core/update_model.dart';
 import '../core/device_model.dart';
 import 'alfi_brain.dart';
+import 'alfi_painter.dart';
 import 'home_widgets.dart';
 import 'nav.dart';
 import 'retro.dart';
-
-/// Sprite 16×16. k contorno · y penacho · r casco · d sombra · w brillo · c cara · e ojo · b botas.
-const _frameIdle = [
-  '......kkkk......',
-  '.....kyyyyk.....',
-  '....kyyyyyyk....',
-  '...kkrrrrrrkk...',
-  '..krrrrrrrrrrk..',
-  '.krwrrrrrrrrrrk.',
-  '.krrrrrrrrrrrrk.',
-  '.krkkkkkkkkkkrk.',
-  '.krkcccccccckrk.',
-  '.krkcekcckeckrk.',
-  '.krkcccccccckrk.',
-  '.krrkcckkcckrrk.',
-  '..krrkkkkkkrrk..',
-  '...kddrrrrddk...',
-  '....kkk..kkk....',
-  '....kbbk.kbbk...',
-];
-
-final _frameBlink = [
-  ..._frameIdle.sublist(0, 9),
-  '.krkckkcckkckrk.',
-  ..._frameIdle.sublist(10),
-];
-
-const _colors = {
-  'k': Color(0xFF000000),
-  'y': Color(0xFFFFEC27),
-  'r': Color(0xFFFF004D),
-  'd': Color(0xFF7E2553),
-  'w': Color(0xFFFFF1E8),
-  'c': Color(0xFFFFCCAA),
-  'e': Color(0xFFFFF1E8),
-  'b': Color(0xFF29366F),
-};
-
-class _SpritePainter extends CustomPainter {
-  final List<String> frame;
-
-  _SpritePainter(this.frame);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final px = size.width / 16;
-    final paint = Paint()..isAntiAlias = false;
-    for (var y = 0; y < frame.length; y++) {
-      final row = frame[y];
-      for (var x = 0; x < row.length; x++) {
-        final c = _colors[row[x]];
-        if (c == null) continue;
-        paint.color = c;
-        canvas.drawRect(Rect.fromLTWH(x * px, y * px, px + 0.5, px + 0.5), paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_SpritePainter old) => !identical(old.frame, frame);
-}
 
 /// Alfi animado: rebota y parpadea.
 class AlfiSprite extends StatefulWidget {
@@ -115,7 +55,7 @@ class _AlfiSpriteState extends State<AlfiSprite> {
       offset: Offset(0, up ? -widget.size / 16 : 0),
       child: CustomPaint(
         size: Size.square(widget.size),
-        painter: _SpritePainter(blink ? _frameBlink : _frameIdle),
+        painter: AlfiPainter(blink),
       ),
     );
   }

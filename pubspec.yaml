@@ -2,7 +2,7 @@ name: sg_alfa_home
 description: "SG Alfa Home: pantalla de inicio retro para Android TV con bloqueo de anuncios y automatizaciones."
 publish_to: 'none'
 
-version: 2.3.5+5009
+version: 2.3.6+5010
 
 environment:
   sdk: ^3.11.0

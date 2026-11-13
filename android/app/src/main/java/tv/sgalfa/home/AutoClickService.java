@@ -131,7 +131,8 @@ public class AutoClickService extends AccessibilityService {
 
     /** Si en pantalla hay algo con pinta de anuncio, Alfi lo apunta en su libreta. */
     private void spotAd(Snapshot s) {
-        if (s.pkg == null || s.pkg.equals(getPackageName()) || s.pkg.startsWith("com.android.")
+        if (s.pkg == null || s.pkg.equals(getPackageName())
+                || (s.pkg.startsWith("com.android.") && !s.pkg.equals("com.android.chrome"))
                 || s.pkg.equals("com.google.android.tvlauncher") || s.pkg.equals("com.spocky.projengmenu")) return;
         long now = SystemClock.uptimeMillis();
         Long last = lastAdCheck.get(s.pkg);
@@ -186,6 +187,7 @@ public class AutoClickService extends AccessibilityService {
             if (!m.enabled || pending.contains(m.id)) continue;
             Long last = lastRun.get(m.id);
             if (last != null && now - last < cooldown(m)) continue;
+            if (tooMany(m.id, now)) continue;
             Object hit = evaluate(m, s);
             if (hit == null) continue;
             lastRun.put(m.id, now);
@@ -199,6 +201,22 @@ public class AutoClickService extends AccessibilityService {
         }
     }
 
+    /** Freno de seguridad: como mucho 3 acciones por minuto de la misma automatización. */
+    private final Map<String, java.util.ArrayDeque<Long>> recent = new HashMap<>();
+
+    private boolean tooMany(String id, long now) {
+        java.util.ArrayDeque<Long> q = recent.get(id);
+        if (q == null) recent.put(id, q = new java.util.ArrayDeque<>());
+        while (!q.isEmpty() && now - q.peekFirst() > 60_000L) q.pollFirst();
+        return q.size() >= 3;
+    }
+
+    private void noteRun(String id) {
+        java.util.ArrayDeque<Long> q = recent.get(id);
+        if (q == null) recent.put(id, q = new java.util.ArrayDeque<>());
+        q.addLast(SystemClock.uptimeMillis());
+    }
+
     private void runAfterDelay(Macros.Macro m) {
         pending.remove(m.id);
         Snapshot s = snapshot();
@@ -208,6 +226,7 @@ public class AutoClickService extends AccessibilityService {
     }
 
     private void perform(Macros.Macro m, Object hit) {
+        noteRun(m.id);
         Stats.add(this, Stats.ACTIONS);
         if (AlfiOverlay.enabled(this)) {
             String what;
@@ -226,7 +245,54 @@ public class AutoClickService extends AccessibilityService {
                 performGlobalAction(GLOBAL_ACTION_HOME);
                 break;
             default:
-                if (hit instanceof AccessibilityNodeInfo) click((AccessibilityNodeInfo) hit);
+                if (hit instanceof AccessibilityNodeInfo) {
+                    boolean ok = press(m, (AccessibilityNodeInfo) hit);
+                    android.util.Log.i("SGAlfa", "Automatización «" + m.name + "»: pulsado=" + ok);
+                    // Comprobar que el aviso se fue; si sigue ahí, volver a intentarlo (hasta 2 veces).
+                    retry(m, 2);
+                }
+        }
+    }
+
+    private void retry(Macros.Macro m, int left) {
+        if (left <= 0) return;
+        handler.postDelayed(() -> {
+            Snapshot s = snapshot();
+            if (s == null) return;
+            Object again = evaluate(m, s);
+            if (again instanceof AccessibilityNodeInfo) {
+                boolean ok = tap((AccessibilityNodeInfo) again);
+                android.util.Log.i("SGAlfa", "Reintento «" + m.name + "»: toque=" + ok);
+                retry(m, left - 1);
+            }
+        }, 800);
+    }
+
+    /** Pulsa el botón: primero lo vuelve a localizar (las páginas web cambian mientras cargan). */
+    private boolean press(Macros.Macro m, AccessibilityNodeInfo node) {
+        Snapshot fresh = snapshot();
+        if (fresh != null) {
+            Object again = evaluate(m, fresh);
+            if (again instanceof AccessibilityNodeInfo) node = (AccessibilityNodeInfo) again;
+        }
+        if (click(node)) return true;
+        return tap(node);
+    }
+
+    /** Toque en el centro del botón, como haría un dedo (para apps que ignoran el clic de accesibilidad). */
+    private boolean tap(AccessibilityNodeInfo node) {
+        try {
+            android.graphics.Rect r = new android.graphics.Rect();
+            node.getBoundsInScreen(r);
+            if (r.isEmpty()) return false;
+            android.graphics.Path p = new android.graphics.Path();
+            p.moveTo(r.exactCenterX(), r.exactCenterY());
+            android.accessibilityservice.GestureDescription g = new android.accessibilityservice.GestureDescription.Builder()
+                    .addStroke(new android.accessibilityservice.GestureDescription.StrokeDescription(p, 0, 60))
+                    .build();
+            return dispatchGesture(g, null, null);
+        } catch (Exception e) {
+            return false;
         }
     }
 
@@ -236,6 +302,8 @@ public class AutoClickService extends AccessibilityService {
     }
 
     private static boolean click(AccessibilityNodeInfo node) {
+        // Si el botón ya no existe tal cual (la pantalla cambió), no fingir que se pulsó.
+        if (!node.refresh()) return false;
         AccessibilityNodeInfo current = node;
         int hops = 0;
         while (current != null && hops <= 4) {
