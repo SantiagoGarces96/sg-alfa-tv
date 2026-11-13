@@ -4,6 +4,7 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../core/apps_model.dart';
@@ -40,14 +41,24 @@ Future<void> showSettingsPanel(BuildContext context, {String? page}) => showGene
       ),
     );
 
-class _Panel extends StatelessWidget {
+class _Panel extends StatefulWidget {
   final String? initialPage;
 
   const _Panel({this.initialPage});
 
   @override
+  State<_Panel> createState() => _PanelState();
+}
+
+class _PanelState extends State<_Panel> {
+  // La navegación del panel se crea UNA vez: si se recreara en cada redibujado (p. ej. al
+  // previsualizar un tema), el panel volvería solo a la primera página.
+  final nav = GlobalKey<NavigatorState>();
+
+  String? get initialPage => widget.initialPage;
+
+  @override
   Widget build(BuildContext context) {
-    final nav = GlobalKey<NavigatorState>();
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
@@ -206,6 +217,13 @@ class _MainPage extends StatelessWidget {
         subtitle: today.adblock ? 'Bloqueo de anuncios activo' : 'Anuncios, pop-ups y automatizaciones',
         trailing: Icon(Icons.chevron_right, color: Retro.cream),
         onTap: () => Navigator.of(context).push(_route(const _ProtectionPage())),
+      ),
+      _Row(
+        icon: Icons.wallpaper,
+        title: 'Fondo de pantalla',
+        subtitle: _wallpaperName(context.watch<ThemeModel>()),
+        trailing: Icon(Icons.chevron_right, color: Retro.cream),
+        onTap: () => Navigator.of(context).push(_route(const _WallpaperPage())),
       ),
       _Row(
         icon: Icons.palette,
@@ -846,3 +864,218 @@ String _dayName(int calendarDay) => const {
       7: 'sábados',
     }[calendarDay] ??
     'lunes';
+
+// ---------------------------------------------------------------- fondo de pantalla
+
+String _wallpaperName(ThemeModel m) {
+  final o = m.wallpaperOverride;
+  if (o.isEmpty) return 'El del tema (${SgThemes.wallpapers[m.current.wallpaper] ?? m.current.wallpaper})';
+  if (o.startsWith('file:')) return 'Tu imagen';
+  return SgThemes.wallpapers[o] ?? o;
+}
+
+class _WallpaperPage extends StatelessWidget {
+  const _WallpaperPage();
+
+  @override
+  Widget build(BuildContext context) {
+    final m = context.watch<ThemeModel>();
+    Widget choice(String id, String name, {bool autofocus = false}) {
+      final selected = m.wallpaperOverride == id;
+      final asset = id.isEmpty ? SgThemes.wallpaperAsset(m.current.wallpaper) : SgThemes.wallpaperAsset(id);
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: RetroButton(
+          autofocus: autofocus,
+          color: selected ? Retro.mustard : Retro.panel,
+          focusColor: Retro.red,
+          padding: const EdgeInsets.all(8),
+          onPressed: () => m.setWallpaperOverride(id),
+          child: Row(children: [
+            Container(
+              width: 128,
+              height: 72,
+              decoration: BoxDecoration(border: Border.all(color: Retro.ink, width: 2.5), color: m.current.night),
+              child: asset == null ? null : Image.asset(asset, fit: BoxFit.cover, cacheWidth: 256),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800))),
+            if (selected) const Icon(Icons.check_circle, size: 26),
+          ]),
+        ),
+      );
+    }
+
+    return _Page(title: 'FONDO', children: [
+      _Row(
+        autofocus: true,
+        icon: Icons.photo_library,
+        title: 'Mis imágenes',
+        subtitle: m.wallpaperOverride.startsWith('file:')
+            ? 'Ahora mismo tienes una imagen tuya'
+            : 'Fotos guardadas en el deco o en un USB',
+        trailing: Icon(Icons.chevron_right, color: Retro.cream),
+        onTap: () => Navigator.of(context).push(_route(const _GalleryPage())),
+      ),
+      const SizedBox(height: 6),
+      choice('', 'El del tema'),
+      for (final e in SgThemes.wallpapers.entries)
+        if (e.key != 'tema') choice(e.key, e.value),
+    ]);
+  }
+}
+
+/// Galería de tus imágenes: elige una con el mando y queda de fondo.
+class _GalleryPage extends StatefulWidget {
+  const _GalleryPage();
+
+  @override
+  State<_GalleryPage> createState() => _GalleryPageState();
+}
+
+class _GalleryPageState extends State<_GalleryPage> with WidgetsBindingObserver {
+  bool? _allowed;
+  List<Map> _images = const [];
+  bool _loading = true;
+  String? _applying;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // Al volver del aviso de permiso de Android, vuelve a mirar.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState s) {
+    if (s == AppLifecycleState.resumed) _load();
+  }
+
+  Future<void> _load() async {
+    final ok = await Native.launcher.invokeMethod('imagesPermission') == true;
+    List<Map> imgs = const [];
+    if (ok) {
+      final r = await Native.launcher.invokeMethod<List>('listImages');
+      imgs = (r ?? const []).whereType<Map>().toList();
+    }
+    if (!mounted) return;
+    setState(() {
+      _allowed = ok;
+      _images = imgs;
+      _loading = false;
+    });
+  }
+
+  Future<void> _apply(String uri) async {
+    setState(() => _applying = uri);
+    final path = await Native.launcher.invokeMethod<String>('applyImage', uri);
+    if (!mounted) return;
+    setState(() => _applying = null);
+    if (path != null) {
+      await context.read<ThemeModel>().setWallpaperOverride('file:$path');
+      // Vuelve a «Fondo», que ya dice «Ahora mismo tienes una imagen tuya».
+      if (mounted) Navigator.of(context).maybePop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return _Page(title: 'MIS IMÁGENES', children: [Text('Buscando fotos…', style: Retro.body(16))]);
+    if (_allowed != true) {
+      return _Page(title: 'MIS IMÁGENES', children: [
+        Text('Para ver tus fotos, Android pide permiso una vez. Pulsa el botón y acepta en el aviso.',
+            style: Retro.body(15)),
+        const SizedBox(height: 12),
+        _Row(
+          autofocus: true,
+          icon: Icons.lock_open,
+          title: 'Dar permiso para ver mis fotos',
+          onTap: () => Native.launcher.invokeMethod('requestImagesPermission'),
+        ),
+      ]);
+    }
+    return _Page(title: 'MIS IMÁGENES', children: [
+      if (_images.isEmpty)
+        Text(
+          'No encontré fotos. Descarga alguna (con Downloader o el gestor de archivos) o conecta un USB, '
+          'y vuelve aquí.',
+          style: Retro.body(15),
+        ),
+      Wrap(spacing: 10, runSpacing: 10, children: [
+        for (var i = 0; i < _images.length; i++)
+          _Thumb(
+            uri: '${_images[i]['uri']}',
+            name: '${_images[i]['name']}',
+            usb: _images[i]['usb'] == true,
+            autofocus: i == 0,
+            busy: _applying == _images[i]['uri'],
+            onTap: () => _apply('${_images[i]['uri']}'),
+          ),
+      ]),
+    ]);
+  }
+}
+
+class _Thumb extends StatefulWidget {
+  final String uri;
+  final String name;
+  final bool usb;
+  final bool autofocus;
+  final bool busy;
+  final VoidCallback onTap;
+
+  const _Thumb({
+    required this.uri,
+    required this.name,
+    required this.usb,
+    required this.autofocus,
+    required this.busy,
+    required this.onTap,
+  });
+
+  @override
+  State<_Thumb> createState() => _ThumbState();
+}
+
+class _ThumbState extends State<_Thumb> {
+  bool _f = false;
+  late final Future<Uint8List?> _img = Native.launcher.invokeMethod<Uint8List>('imageThumb', widget.uri);
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        autofocus: widget.autofocus,
+        onTap: widget.onTap,
+        onFocusChange: (f) {
+          setState(() => _f = f);
+          if (f) Scrollable.ensureVisible(context, alignment: 0.5, duration: const Duration(milliseconds: 160));
+        },
+        focusColor: Colors.transparent,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          width: 140,
+          height: 79,
+          decoration: BoxDecoration(
+            color: Retro.panel,
+            border: Border.all(color: _f ? Retro.mustard : Retro.ink, width: _f ? 4 : 2.5),
+          ),
+          child: Stack(fit: StackFit.expand, children: [
+            FutureBuilder<Uint8List?>(
+              future: _img,
+              builder: (_, s) => s.data == null
+                  ? Center(child: Text(widget.name, maxLines: 2, style: Retro.body(10)))
+                  : Image.memory(s.data!, fit: BoxFit.cover, gaplessPlayback: true),
+            ),
+            if (widget.usb)
+              Positioned(right: 2, top: 2, child: RetroSticker('USB', color: Retro.teal)),
+            if (widget.busy) const Center(child: CircularProgressIndicator()),
+          ]),
+        ),
+      );
+}

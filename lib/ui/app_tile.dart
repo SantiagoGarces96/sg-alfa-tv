@@ -71,24 +71,59 @@ class _AppTileState extends State<AppTile> {
   @override
   void dispose() {
     _hold?.cancel();
+    _openLater?.cancel();
     super.dispose();
   }
 
+  /// Al soltar OK esperamos un poco antes de abrir: muchos mandos, al MANTENER OK, mandan una
+  /// ráfaga de pulsaciones cortas (bajar-subir-bajar-subir…). Si llega otra pulsación en ese rato,
+  /// sigue «mantenido».
+  Timer? _openLater;
+  static const _holdTime = Duration(milliseconds: 600);
+  static const _releaseGrace = Duration(milliseconds: 320);
+
+  void _fireOptions() {
+    _hold?.cancel();
+    _openLater?.cancel();
+    if (_longFired) return;
+    _longFired = true;
+    if (mounted) setState(() => _pressed = false);
+    widget.onOptions();
+  }
+
   KeyEventResult _onKey(FocusNode node, KeyEvent e) {
-    if (!_selectKeys.contains(e.logicalKey)) return KeyEventResult.ignored;
-    if (e is KeyDownEvent) {
+    // Tecla Menú / Info del mando: opciones directamente.
+    if (e is KeyDownEvent &&
+        (e.logicalKey == LogicalKeyboardKey.contextMenu || e.logicalKey == LogicalKeyboardKey.info)) {
       _longFired = false;
-      setState(() => _pressed = true);
-      _hold?.cancel();
-      _hold = Timer(const Duration(milliseconds: 650), () {
-        _longFired = true;
-        if (mounted) setState(() => _pressed = false);
-        widget.onOptions();
-      });
+      _fireOptions();
+      return KeyEventResult.handled;
+    }
+    if (!_selectKeys.contains(e.logicalKey)) return KeyEventResult.ignored;
+
+    if (e is KeyDownEvent || e is KeyRepeatEvent) {
+      if (_openLater?.isActive ?? false) {
+        // Otra pulsación justo después de soltar: es una ráfaga de «mantener».
+        _openLater!.cancel();
+      } else if (e is KeyDownEvent && !(_hold?.isActive ?? false)) {
+        // Primera pulsación de verdad.
+        _longFired = false;
+        setState(() => _pressed = true);
+        _hold = Timer(_holdTime, _fireOptions);
+      }
+      if (e is KeyRepeatEvent) _fireOptions(); // el sistema ya dice que se está manteniendo
     } else if (e is KeyUpEvent) {
-      _hold?.cancel();
-      if (mounted) setState(() => _pressed = false);
-      if (!_longFired) widget.onOpen();
+      if (_longFired) {
+        _hold?.cancel();
+        if (mounted) setState(() => _pressed = false);
+        return KeyEventResult.handled;
+      }
+      _openLater?.cancel();
+      _openLater = Timer(_releaseGrace, () {
+        _hold?.cancel();
+        if (mounted) setState(() => _pressed = false);
+        if (!_longFired) widget.onOpen();
+      });
     }
     return KeyEventResult.handled;
   }

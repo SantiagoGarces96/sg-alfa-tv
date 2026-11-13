@@ -5,6 +5,8 @@
  * Copyright (c) 2026 SG Alfa.
  */
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -82,7 +84,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Positioned.fill(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 600),
-              child: _wallpaper(theme, size),
+              child: _wallpaper(theme, context.watch<ThemeModel>().effectiveWallpaper, size),
             ),
           ),
           // Velo inferior para que el texto y las apps se lean sobre cualquier fondo.
@@ -156,8 +158,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   static double _dockTile(SgTheme t) => switch (t.tileSize) { 's' => 112, 'l' => 150, _ => 130 };
 
-  Widget _wallpaper(SgTheme t, Size size) {
-    final asset = SgThemes.wallpaperAsset(t.wallpaper);
+  Widget _wallpaper(SgTheme t, String id, Size size) {
+    if (id.startsWith('file:')) {
+      final f = File(id.substring(5));
+      if (f.existsSync()) {
+        return Image.file(f, key: ValueKey(id), fit: BoxFit.cover, width: size.width, height: size.height);
+      }
+    }
+    final asset = SgThemes.wallpaperAsset(id.startsWith('file:') ? t.wallpaper : id);
     if (asset == null) {
       return DecoratedBox(
         key: ValueKey('grad-${t.id}'),
@@ -173,7 +181,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
     return Image.asset(asset, key: ValueKey(asset), fit: BoxFit.cover, width: size.width, height: size.height,
-        filterQuality: t.wallpaper == 'pixel' ? FilterQuality.none : FilterQuality.medium);
+        filterQuality: id == 'pixel' ? FilterQuality.none : FilterQuality.medium);
   }
 
   Widget _dock(List<TvApp> favorites, SgTheme theme) {

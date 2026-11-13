@@ -89,6 +89,35 @@ public final class LauncherChannel {
                 case "network":
                     result.success(network());
                     break;
+                case "imagesPermission":
+                    result.success(Wallpapers.hasPermission(activity));
+                    break;
+                case "requestImagesPermission":
+                    Wallpapers.requestPermission(activity);
+                    result.success(true);
+                    break;
+                case "listImages":
+                    io.execute(() -> {
+                        List<Map<String, Object>> r = Wallpapers.list(activity);
+                        main.post(() -> result.success(r));
+                    });
+                    break;
+                case "imageThumb": {
+                    String uri = (String) call.arguments();
+                    io.execute(() -> {
+                        byte[] b = Wallpapers.thumb(activity, uri);
+                        main.post(() -> result.success(b));
+                    });
+                    break;
+                }
+                case "applyImage": {
+                    String uri = (String) call.arguments();
+                    io.execute(() -> {
+                        String path = Wallpapers.apply(activity, uri);
+                        main.post(() -> result.success(path));
+                    });
+                    break;
+                }
                 case "checkUpdate":
                     io.execute(() -> {
                         Map<String, Object> r = Updater.check(activity);

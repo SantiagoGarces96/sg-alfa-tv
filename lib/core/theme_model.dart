@@ -343,6 +343,20 @@ class ThemeModel extends ChangeNotifier {
   String _nightId = SgThemes.pixel.id;
   Timer? _timer;
 
+  /// Fondo elegido por ti, por encima del del tema: '' = el del tema; id de fondo incluido;
+  /// o 'file:<ruta>' para una imagen tuya.
+  String _wallpaperOverride = '';
+  String get wallpaperOverride => _wallpaperOverride;
+
+  /// El fondo que se ve ahora mismo (id incluido o 'file:<ruta>').
+  String get effectiveWallpaper => _wallpaperOverride.isNotEmpty ? _wallpaperOverride : _current.wallpaper;
+
+  Future<void> setWallpaperOverride(String v) async {
+    _wallpaperOverride = v;
+    notifyListeners();
+    (await SharedPreferences.getInstance()).setString('wallpaper_override', v);
+  }
+
   /// Se llama al cambiar el tema: el inicio se redibuja entero con los colores nuevos.
   VoidCallback? onApplied;
 
@@ -368,6 +382,7 @@ class ThemeModel extends ChangeNotifier {
     _auto = p.getBool('theme_auto') ?? false;
     _dayId = p.getString('theme_day') ?? _dayId;
     _nightId = p.getString('theme_night') ?? _nightId;
+    _wallpaperOverride = p.getString('wallpaper_override') ?? '';
     _applyActive();
     _timer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (_auto) _applyActive();
