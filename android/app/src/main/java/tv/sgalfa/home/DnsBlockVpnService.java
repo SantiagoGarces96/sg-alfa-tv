@@ -20,6 +20,8 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.Locale;
 import java.util.Set;
 
@@ -40,6 +42,34 @@ public class DnsBlockVpnService extends VpnService {
     private static final String KEY_WANTED = "adblock_wanted";
 
     private static volatile boolean running = false;
+
+    /** DNS públicos que algunas apps usan «a escondidas»: también pasan por el filtro. */
+    private static final String[] HIJACK = {
+            "8.8.8.8", "8.8.4.4", "1.1.1.1", "1.0.0.1", "9.9.9.9", "149.112.112.112",
+            "208.67.222.222", "208.67.220.220", "76.76.2.0", "185.228.168.9"};
+
+    private static final String CHANNEL = "sgalfa_adblock";
+    private static final int NOTIF_ID = 4711;
+    private ExecutorService pool;
+
+    /**
+     * Vuelve a encender el bloqueador si el usuario lo quiere encendido y se apagó
+     * (Android lo cerró por memoria, otra VPN lo quitó, reinicio…). Lo llama el servicio de
+     * automatizaciones cada minuto. Sin pedir nada: solo si el permiso de VPN sigue concedido.
+     */
+    public static void ensure(Context c) {
+        if (running || !isWanted(c)) return;
+        try {
+            if (VpnService.prepare(c) != null) return; // haría falta que la persona lo acepte
+            Intent i = new Intent(c, DnsBlockVpnService.class).setAction(ACTION_START);
+            try {
+                c.startService(i);
+            } catch (IllegalStateException e) {
+                if (android.os.Build.VERSION.SDK_INT >= 26) c.startForegroundService(i);
+            }
+        } catch (Exception ignored) {
+        }
+    }
     private static volatile boolean reload = false;
 
     /** Se llama al bloquear un dominio desde la tele: la lista se recarga al momento. */
@@ -72,7 +102,13 @@ public class DnsBlockVpnService extends VpnService {
             return START_NOT_STICKY;
         }
         setWanted(this, true);
+        goForeground();
         startBlocking();
+        if (!running) {
+            stopForegroundCompat();
+            stopSelf();
+            return START_NOT_STICKY;
+        }
         return START_STICKY;
     }
 
@@ -96,21 +132,24 @@ public class DnsBlockVpnService extends VpnService {
         if (blocklist.isEmpty()) blocklist = loadBlocklist();
         ParcelFileDescriptor pfd;
         try {
-            pfd = new Builder()
+            Builder b = new Builder()
                     .setSession("SG Alfa — bloqueo de anuncios")
                     .addAddress("10.111.222.2", 32)
                     .addDnsServer(UPSTREAM)
                     .addDnsServer(UPSTREAM2)
                     .addRoute(UPSTREAM, 32)
                     .addRoute(UPSTREAM2, 32)
-                    .setBlocking(true)
-                    .establish();
+                    .setBlocking(true);
+            // Las apps que llevan su propio DNS (Google, Cloudflare…) tampoco se escapan.
+            for (String ip : HIJACK) b.addRoute(ip, 32);
+            pfd = b.establish();
         } catch (Exception e) {
             pfd = null;
         }
         if (pfd == null) return;
         vpn = pfd;
         running = true;
+        pool = Executors.newFixedThreadPool(4);
         final ParcelFileDescriptor tunnel = pfd;
         worker = new Thread(() -> pump(tunnel), "sgalfa-dns");
         worker.start();
@@ -119,6 +158,8 @@ public class DnsBlockVpnService extends VpnService {
     private synchronized void stopBlocking() {
         running = false;
         if (worker != null) worker.interrupt();
+        if (pool != null) pool.shutdownNow();
+        pool = null;
         try {
             if (vpn != null) vpn.close();
         } catch (Exception ignored) {
@@ -128,16 +169,52 @@ public class DnsBlockVpnService extends VpnService {
 
     @Override
     public void onRevoke() {
-        // Otra VPN (p. ej. AdGuard o Blokada) tomó el control.
-        setWanted(this, false);
+        // Otra VPN (p. ej. AdGuard) tomó el control. Antes el bloqueador quedaba apagado para siempre;
+        // ahora sigue «querido» y el servicio de automatizaciones lo recupera en menos de un minuto.
         stopBlocking();
+        stopForegroundCompat();
         super.onRevoke();
     }
 
     @Override
     public void onDestroy() {
         stopBlocking();
+        stopForegroundCompat();
         super.onDestroy();
+    }
+
+    /** Servicio en primer plano: Android no lo cierra para liberar memoria. */
+    private void goForeground() {
+        try {
+            android.app.NotificationManager nm = getSystemService(android.app.NotificationManager.class);
+            android.app.Notification.Builder nb;
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                nm.createNotificationChannel(new android.app.NotificationChannel(
+                        CHANNEL, "Bloqueador de anuncios", android.app.NotificationManager.IMPORTANCE_MIN));
+                nb = new android.app.Notification.Builder(this, CHANNEL);
+            } else {
+                nb = new android.app.Notification.Builder(this);
+            }
+            android.app.Notification n = nb
+                    .setSmallIcon(android.R.drawable.ic_lock_lock)
+                    .setContentTitle("SG Alfa bloquea anuncios")
+                    .setOngoing(true)
+                    .build();
+            if (android.os.Build.VERSION.SDK_INT >= 34) {
+                startForeground(NOTIF_ID, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+            } else {
+                startForeground(NOTIF_ID, n);
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void stopForegroundCompat() {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 24) stopForeground(STOP_FOREGROUND_REMOVE);
+            else stopForeground(true);
+        } catch (Exception ignored) {
+        }
     }
 
     private void pump(ParcelFileDescriptor pfd) {
@@ -167,21 +244,34 @@ public class DnsBlockVpnService extends VpnService {
                     reload = false;
                     blocklist = loadBlocklist();
                 }
-                String host = qname(query);
-                byte[] answer;
+                final String host = qname(query);
                 if (host != null && isBlocked(host)) {
-                    answer = buildBlockedDns(query);
                     Stats.add(this, Stats.ADS);
-                } else {
-                    answer = forward(socket, dstIp, query);
-                    if (answer != null && isNullAnswer(answer)) {
-                        Stats.add(this, Stats.ADS); // filtrado por AdGuard
-                    } else if (answer != null && host != null && AdLog.adLikeDomain(host)) {
-                        AdLog.dnsPassed(this, host); // se coló: Alfi lo apunta
+                    synchronized (output) {
+                        output.write(buildUdpIpv4(dstIp, srcIp, dstPort, srcPort, buildBlockedDns(query)));
                     }
+                    continue;
                 }
-                if (answer != null) {
-                    output.write(buildUdpIpv4(dstIp, srcIp, dstPort, srcPort, answer));
+                final ExecutorService p = pool;
+                if (p == null) continue;
+                try {
+                    p.execute(() -> {
+                        byte[] answer = resolve(query);
+                        if (answer == null) return;
+                        if (isNullAnswer(answer)) {
+                            Stats.add(this, Stats.ADS); // filtrado por AdGuard DNS
+                        } else if (host != null && AdLog.adLikeDomain(host)) {
+                            AdLog.dnsPassed(this, host); // se coló: Alfi lo apunta
+                        }
+                        try {
+                            synchronized (output) {
+                                output.write(buildUdpIpv4(dstIp, srcIp, dstPort, srcPort, answer));
+                            }
+                        } catch (Exception ignored) {
+                        }
+                    });
+                } catch (Exception ignored) {
+                    // apagándose
                 }
             }
         } catch (Exception ignored) {
@@ -195,6 +285,24 @@ public class DnsBlockVpnService extends VpnService {
         byte[] out = new byte[to - from];
         System.arraycopy(a, from, out, 0, out.length);
         return out;
+    }
+
+    /** Pregunta a AdGuard DNS (y si no contesta, al de reserva), sea cual sea el DNS que pidió la app. */
+    private byte[] resolve(byte[] query) {
+        for (String up : new String[]{UPSTREAM, UPSTREAM2}) {
+            DatagramSocket s = null;
+            try {
+                s = new DatagramSocket();
+                protect(s);
+                s.setSoTimeout(2500);
+                byte[] a = forward(s, InetAddress.getByName(up).getAddress(), query);
+                if (a != null) return a;
+            } catch (Exception ignored) {
+            } finally {
+                if (s != null) s.close();
+            }
+        }
+        return null;
     }
 
     private static byte[] forward(DatagramSocket socket, byte[] dnsIp, byte[] query) {

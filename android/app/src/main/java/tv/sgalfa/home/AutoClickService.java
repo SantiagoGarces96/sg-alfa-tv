@@ -73,6 +73,120 @@ public class AutoClickService extends AccessibilityService {
         cleaner = new CacheCleaner(this);
         loadMacros();
         prefs().registerOnSharedPreferenceChangeListener(listener);
+        // Vigilante: si el bloqueador de anuncios se apagó solo, se vuelve a encender.
+        handler.removeCallbacks(watchdog);
+        handler.postDelayed(watchdog, 5_000);
+    }
+
+    private final Runnable watchdog = new Runnable() {
+        @Override
+        public void run() {
+            DnsBlockVpnService.ensure(AutoClickService.this);
+            handler.postDelayed(this, 60_000);
+        }
+    };
+
+    // ---------------------------------------------------------------- anuncios a pantalla completa
+
+    /** Pantallas de anuncios de las redes más comunes (Unity, ironSource, AppLovin, Google…). */
+    private static final String[] AD_SCREENS = {
+            "com.unity3d.ads.", "com.unity3d.services.ads.", "com.ironsource.", "com.applovin.adview.",
+            "com.applovin.impl.adview.", "com.applovin.mediation.", "com.vungle.", "com.mbridge.msdk.",
+            "com.bytedance.sdk.openadsdk.", "com.fyber.", "com.inmobi.ads.", "com.inmobi.media.",
+            "com.chartboost.sdk.", "com.moloco.sdk.", "com.yandex.mobile.ads.", "com.facebook.ads.",
+            "com.google.android.gms.ads.AdActivity", "com.adcolony.", "com.startapp.", "io.bidmachine."};
+    private static final String[] CLOSE_WORDS = {
+            "close", "cerrar", "skip", "omitir", "saltar", "skip ad", "close ad", "×", "✕", "x", "continuar",
+            "continue", "no, gracias", "no thanks"};
+    /** A dónde suelen mandar los anuncios para que cueste volver. */
+    private static final Set<String> REDIRECT_TARGETS = new HashSet<>(java.util.Arrays.asList(
+            "com.android.vending", "com.android.chrome", "org.chromium.webview_shell", "com.google.android.tv.web",
+            "com.opera.browser", "org.mozilla.firefox", "com.android.browser", "com.amazon.cloud9"));
+
+    private String adPkg;
+    private long adUntil;
+    private int adTries;
+    private boolean adOnScreen;
+
+    private static boolean isAdScreen(CharSequence cls) {
+        if (cls == null) return false;
+        String c = cls.toString();
+        for (String p : AD_SCREENS) if (c.startsWith(p)) return true;
+        return false;
+    }
+
+    /** Cada cambio de ventana: ¿apareció un anuncio, o el anuncio nos mandó a otra app? */
+    private void watchWindow(String pkg, CharSequence cls) {
+        long now = SystemClock.uptimeMillis();
+        if (isAdScreen(cls)) {
+            if (!adOnScreen) {
+                adOnScreen = true;
+                adPkg = pkg;
+                adTries = 0;
+                Stats.add(this, Stats.ADS);
+                AlfiOverlay.say(this, "Anuncio a pantalla completa: lo cierro.", 2500);
+            }
+            adUntil = now + 30_000;
+            handler.removeCallbacks(closeAd);
+            handler.postDelayed(closeAd, 600);
+            return;
+        }
+        if (adOnScreen && pkg.equals(adPkg)) {
+            adOnScreen = false; // volvió a la app: anuncio cerrado
+            handler.removeCallbacks(closeAd);
+            return;
+        }
+        // El anuncio abrió la tienda o el navegador: volver a la app.
+        if (adPkg != null && now < adUntil && !pkg.equals(adPkg) && REDIRECT_TARGETS.contains(pkg)) {
+            adOnScreen = false;
+            handler.removeCallbacks(closeAd);
+            performGlobalAction(GLOBAL_ACTION_BACK);
+            handler.postDelayed(() -> {
+                AccessibilityNodeInfo r = getRootInActiveWindow();
+                CharSequence p = r == null ? null : r.getPackageName();
+                if (p != null && REDIRECT_TARGETS.contains(p.toString())) performGlobalAction(GLOBAL_ACTION_BACK);
+            }, 900);
+            AlfiOverlay.say(this, "El anuncio quiso sacarte de la app: te devolví.", 2500);
+        }
+    }
+
+    /** Intenta cerrar el anuncio: botón «Cerrar/Omitir» si se puede, si no Atrás. Reintenta hasta 25 s. */
+    private final Runnable closeAd = new Runnable() {
+        @Override
+        public void run() {
+            if (!adOnScreen || adTries++ > 30) return;
+            AccessibilityNodeInfo root = getRootInActiveWindow();
+            boolean clicked = false;
+            if (root != null) {
+                List<AccessibilityNodeInfo> found = new ArrayList<>();
+                findClose(root, found, 0);
+                for (AccessibilityNodeInfo n : found) {
+                    AccessibilityNodeInfo t = n;
+                    while (t != null && !t.isClickable()) t = t.getParent();
+                    if (t != null && t.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
+                        clicked = true;
+                        break;
+                    }
+                }
+            }
+            if (!clicked) performGlobalAction(GLOBAL_ACTION_BACK);
+            handler.postDelayed(this, 800);
+        }
+    };
+
+    private void findClose(AccessibilityNodeInfo n, List<AccessibilityNodeInfo> out, int depth) {
+        if (n == null || depth > 30 || out.size() > 4) return;
+        CharSequence t = n.getText() != null ? n.getText() : n.getContentDescription();
+        if (t != null) {
+            String l = t.toString().trim().toLowerCase(java.util.Locale.ROOT);
+            for (String w : CLOSE_WORDS) {
+                if (l.equals(w) || (w.length() > 2 && l.startsWith(w) && l.length() <= w.length() + 12)) {
+                    out.add(n);
+                    break;
+                }
+            }
+        }
+        for (int i = 0; i < n.getChildCount(); i++) findClose(n.getChild(i), out, depth + 1);
     }
 
     private static final class Snapshot {
@@ -200,6 +314,9 @@ public class AutoClickService extends AccessibilityService {
         CharSequence p = event.getPackageName();
         String pkg = p == null ? "" : p.toString();
         boolean cleaning = cleaner != null && cleaner.running();
+        if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && !cleaning && !pkg.equals(getPackageName())) {
+            watchWindow(pkg, event.getClassName());
+        }
         if (!cleaning && (pkg.equals(getPackageName()) || IGNORE.contains(pkg))) return;
         // Leer la pantalla como mucho una vez cada 0,6 s: así las apps van fluidas al deslizar.
         long now = SystemClock.uptimeMillis();
