@@ -403,7 +403,7 @@ class _BarIconState extends State<BarIcon> {
           child: Icon(widget.icon,
               size: 21,
               color: widget.alert ? Color(0xFFFF8A8A) : Retro.cream,
-              shadows: [Shadow(color: Retro.ink, offset: Offset(2, 2))]),
+              shadows: Retro.clean ? const [] : [Shadow(color: Retro.ink, offset: const Offset(2, 2))]),
         ),
       );
 }
