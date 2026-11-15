@@ -18,6 +18,11 @@ class Pro {
   static Color get bg => dark ? const Color(0xFF151518) : const Color(0xFFF2F2F7);
   static Color get card => dark ? const Color(0xFF222226) : const Color(0xFFFFFFFF);
   static Color get cardFocus => dark ? const Color(0xFF2C3446) : const Color(0xFFE6EEFF);
+
+  /// Fondo de botones sin enfocar (gris translúcido) y del elemento enfocado (blanco).
+  static Color get chip => dark ? const Color(0x1FFFFFFF) : const Color(0x0F000000);
+  static Color get focusBg => Colors.white;
+  static Color get focusFg => const Color(0xFF111114);
   static Color get text => dark ? const Color(0xFFF2F2F4) : const Color(0xFF1C1C1E);
   static Color get sub => dark ? const Color(0xFF9A9AA2) : const Color(0xFF6E6E73);
   static Color get line => dark ? const Color(0x1FFFFFFF) : const Color(0x1A000000);
@@ -70,6 +75,9 @@ class ProButton extends StatefulWidget {
   final double radius;
   final FocusNode? focusNode;
 
+  /// Fila de lista: sin fondo hasta que se enfoca.
+  final bool plain;
+
   const ProButton({
     super.key,
     required this.child,
@@ -80,6 +88,7 @@ class ProButton extends StatefulWidget {
     this.padding = const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
     this.radius = 12,
     this.focusNode,
+    this.plain = false,
   });
 
   @override
@@ -93,8 +102,11 @@ class _ProButtonState extends State<ProButton> {
   Widget build(BuildContext context) {
     final danger = widget.color == Pro.danger;
     final filled = !danger && !Pro._neutral(widget.color);
-    final bg = filled ? Pro.accent : (_focused ? Pro.cardFocus : Pro.card);
-    final fg = filled ? Colors.white : (danger ? Pro.danger : Pro.text);
+    // Como en Apple TV: lo enfocado se vuelve blanco con texto oscuro y crece un poco.
+    final bg = _focused
+        ? Pro.focusBg
+        : (filled ? Pro.accent : (widget.plain ? Colors.transparent : Pro.chip));
+    final fg = danger ? Pro.danger : (_focused ? Pro.focusFg : (filled ? Colors.white : Pro.text));
     return Padding(
       padding: const EdgeInsets.only(right: 8, bottom: 6),
       child: InkWell(
@@ -113,21 +125,25 @@ class _ProButtonState extends State<ProButton> {
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
         borderRadius: BorderRadius.circular(widget.radius),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
+        child: AnimatedScale(
+          scale: _focused ? 1.03 : 1.0,
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOutCubic,
+          child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
           padding: widget.padding,
           decoration: BoxDecoration(
             color: bg,
             borderRadius: BorderRadius.circular(widget.radius),
-            border: Border.all(
-              color: _focused ? (filled ? Colors.white : Pro.accent) : (filled ? Pro.accent : Pro.line),
-              width: _focused ? 2.5 : 1,
-            ),
+            boxShadow: _focused
+                ? const [BoxShadow(color: Color(0x55000000), blurRadius: 18, offset: Offset(0, 8))]
+                : const [],
           ),
           child: DefaultTextStyle.merge(
             style: TextStyle(color: fg, fontWeight: FontWeight.w600, fontSize: 16),
             child: IconTheme.merge(data: IconThemeData(color: fg, size: 22), child: widget.child),
           ),
+        ),
         ),
       ),
     );

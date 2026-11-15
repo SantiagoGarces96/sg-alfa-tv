@@ -74,7 +74,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final size = MediaQuery.sizeOf(context);
     final favorites = apps.favorites;
     final others = apps.others;
-    final heroHeight = (size.height - _topBar - _dockHeight - 30).clamp(260.0, 2000.0);
+    // Escaparate (Apple TV): la imagen ocupa ~60 % de la pantalla y la franja de apps queda abajo,
+    // con la fila siguiente asomando.
+    final heroHeight = theme.showcase
+        ? (size.height * 0.62 - _topBar).clamp(200.0, 2000.0)
+        : (size.height - _topBar - _dockHeight - 30).clamp(260.0, 2000.0);
 
     return PopScope(
       canPop: false,
@@ -121,7 +125,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   : CustomScrollView(
                       controller: _scroll,
                       slivers: [
-                        SliverToBoxAdapter(child: SizedBox(height: heroHeight, child: const HomeHero())),
+                        SliverToBoxAdapter(
+                            child: SizedBox(
+                                height: heroHeight,
+                                child: theme.showcase ? const ShowcaseHero() : const HomeHero())),
                         if (theme.dock != 'oculto') SliverToBoxAdapter(child: _dock(favorites, theme)),
                         if (others.isNotEmpty || theme.dock == 'oculto') ...[
                           const SliverToBoxAdapter(child: SectionTitle('Todas las apps')),
@@ -202,7 +209,13 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Container(
         height: _dockHeight - 16,
-        decoration: switch (theme.dock) {
+        decoration: theme.showcase
+            ? BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.38),
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+              )
+            : switch (theme.dock) {
           'fila' => null,
           'oscuro' => Retro.box(color: Retro.night.withValues(alpha: 0.85), radius: 22, border: 4, shadow: 7),
           'cristal' => Retro.box(color: Colors.white.withValues(alpha: 0.10), radius: 22, border: 2, shadow: 0,

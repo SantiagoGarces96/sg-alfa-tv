@@ -36,10 +36,12 @@ Future<void> showSettingsPanel(BuildContext context, {String? page}) => showGene
         ],
         child: _Panel(initialPage: page),
       ),
-      transitionBuilder: (_, anim, __, child) => SlideTransition(
-        position: Tween(begin: const Offset(-1, 0), end: Offset.zero)
-            .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
-        child: child,
+      transitionBuilder: (_, anim, __, child) => FadeTransition(
+        opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
+        child: ScaleTransition(
+          scale: Tween(begin: 1.03, end: 1.0).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+          child: child,
+        ),
       ),
     );
 
@@ -61,17 +63,10 @@ class _PanelState extends State<_Panel> {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
+    // Pantalla completa, como los ajustes de Apple TV: icono grande a la izquierda y lista a la derecha.
+    return SizedBox.expand(
       child: Container(
-        width: 520,
-        height: double.infinity,
-        margin: const EdgeInsets.fromLTRB(0, 0, 0, 0),
-        decoration: BoxDecoration(
-          color: Pro.bg,
-          border: Border(right: BorderSide(color: Pro.line, width: 1)),
-          boxShadow: const [BoxShadow(color: Color(0x66000000), blurRadius: 30)],
-        ),
+        decoration: BoxDecoration(color: Pro.bg.withValues(alpha: 0.97)),
         child: Material(
           type: MaterialType.transparency,
           child: PopScope(
@@ -104,22 +99,54 @@ Route _route(Widget page) => PageRouteBuilder(
       transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: a, child: child),
     );
 
-/// Página del panel: título sobrio + lista de opciones.
+/// Página de ajustes al estilo Apple TV: título arriba al centro, icono grande a la izquierda
+/// y la lista de opciones a la derecha.
 class _Page extends StatelessWidget {
   final String title;
   final List<Widget> children;
 
   const _Page({required this.title, required this.children});
 
+  static IconData _iconFor(String t) {
+    final l = t.toLowerCase();
+    if (l.contains('protec')) return Icons.shield_outlined;
+    if (l.contains('mi tema')) return Icons.brush_outlined;
+    if (l.contains('tema')) return Icons.palette_outlined;
+    if (l.contains('fondo')) return Icons.wallpaper_outlined;
+    if (l.contains('imágenes')) return Icons.photo_library_outlined;
+    if (l.contains('ocult')) return Icons.visibility_off_outlined;
+    if (l.contains('acerca')) return Icons.info_outline;
+    return Icons.settings_outlined;
+  }
+
   @override
-  Widget build(BuildContext context) => ListView(
-        padding: const EdgeInsets.fromLTRB(28, 34, 34, 40),
-        children: [
-          Text(_titleCase(title), style: Pro.title(30)),
-          const SizedBox(height: 22),
-          ...children,
-        ],
-      );
+  Widget build(BuildContext context) => Column(children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 34, bottom: 18),
+          child: Text(_titleCase(title), style: Pro.title(30)),
+        ),
+        Expanded(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+              flex: 4,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 30),
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: Icon(_iconFor(title), size: 210, color: Pro.sub.withValues(alpha: 0.55)),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 5,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(0, 6, 56, 40),
+                children: children,
+              ),
+            ),
+          ]),
+        ),
+      ]);
 }
 
 /// «AJUSTES» → «Ajustes» (los títulos de página no van en mayúsculas).
@@ -144,35 +171,44 @@ class _Row extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: ProButton(
-          autofocus: autofocus,
-          color: Pro.card,
-          onPressed: onTap,
-          radius: 14,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          child: Row(children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(color: Pro.accent, borderRadius: BorderRadius.circular(9)),
-              child: Icon(icon, size: 20, color: Colors.white),
-            ),
-            const SizedBox(width: 14),
+  Widget build(BuildContext context) {
+    // Valores cortos («Mi tema 1», «Activado») van a la derecha, como en Apple TV;
+    // las explicaciones largas, debajo del título.
+    final short = subtitle != null && subtitle!.length <= 26;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: ProButton(
+        autofocus: autofocus,
+        plain: true,
+        onPressed: onTap,
+        radius: 12,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Builder(builder: (context) {
+          final fg = DefaultTextStyle.of(context).style.color ?? Pro.text;
+          final dim = fg.withValues(alpha: 0.6);
+          return Row(children: [
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title, style: Pro.body(17, weight: FontWeight.w600)),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(subtitle!, style: Pro.body(14, color: Pro.sub)),
+                Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: fg)),
+                if (subtitle != null && !short) ...[
+                  const SizedBox(height: 3),
+                  Text(subtitle!, style: TextStyle(fontSize: 14, color: dim)),
                 ],
               ]),
             ),
-            if (trailing != null) ...[const SizedBox(width: 10), trailing!],
-          ]),
-        ),
-      );
+            if (short) ...[
+              const SizedBox(width: 12),
+              Text(subtitle!, style: TextStyle(fontSize: 17, color: dim)),
+            ],
+            if (trailing != null) ...[
+              const SizedBox(width: 10),
+              IconTheme.merge(data: IconThemeData(color: dim), child: trailing!),
+            ],
+          ]);
+        }),
+      ),
+    );
+  }
 }
 
 /// Interruptor de los ajustes (estilo móvil).
@@ -182,7 +218,10 @@ class RetroSwitch extends StatelessWidget {
   const RetroSwitch(this.value, {super.key});
 
   @override
-  Widget build(BuildContext context) => ProSwitch(value);
+  Widget build(BuildContext context) {
+    final fg = DefaultTextStyle.of(context).style.color ?? Pro.text;
+    return Text(value ? 'Activado' : 'Desactivado', style: TextStyle(fontSize: 17, color: fg.withValues(alpha: 0.6)));
+  }
 }
 
 // ---------------------------------------------------------------- páginas
@@ -199,14 +238,14 @@ class _MainPage extends StatelessWidget {
         icon: Icons.shield,
         title: 'Protección SG Alfa',
         subtitle: today.adblock ? 'Bloqueo de anuncios activo' : 'Anuncios, pop-ups y automatizaciones',
-        trailing: Icon(Icons.chevron_right, color: Pro.sub),
+        trailing: const Icon(Icons.chevron_right),
         onTap: () => Navigator.of(context).push(_route(const _ProtectionPage())),
       ),
       _Row(
         icon: Icons.wallpaper,
         title: 'Fondo de pantalla',
         subtitle: _wallpaperName(context.watch<ThemeModel>()),
-        trailing: Icon(Icons.chevron_right, color: Pro.sub),
+        trailing: const Icon(Icons.chevron_right),
         onTap: () => Navigator.of(context).push(_route(const _WallpaperPage())),
       ),
       _Row(
@@ -215,14 +254,14 @@ class _MainPage extends StatelessWidget {
         subtitle: context.watch<ThemeModel>().auto
             ? 'Automático (día / noche)'
             : 'Ahora: ${context.watch<ThemeModel>().current.name}',
-        trailing: Icon(Icons.chevron_right, color: Pro.sub),
+        trailing: const Icon(Icons.chevron_right),
         onTap: () => Navigator.of(context).push(_route(const _ThemesPage())),
       ),
       _Row(
         icon: Icons.visibility_off,
         title: 'Apps ocultas',
         subtitle: '${context.watch<AppsModel>().hiddenApps.length} ocultas',
-        trailing: Icon(Icons.chevron_right, color: Pro.sub),
+        trailing: const Icon(Icons.chevron_right),
         onTap: () => Navigator.of(context).push(_route(const _HiddenPage())),
       ),
       _Row(
@@ -287,7 +326,7 @@ class _ProtectionPageState extends State<_ProtectionPage> {
         icon: Icons.edit_note,
         title: 'Crear y editar automatizaciones',
         subtitle: 'CUANDO / SOLO SI / ENTONCES',
-        trailing: Icon(Icons.chevron_right, color: Pro.sub),
+        trailing: const Icon(Icons.chevron_right),
         onTap: () async {
           await SgAutomationsScreen.open(context);
           if (context.mounted) context.read<TodayModel>().refresh();
@@ -555,7 +594,7 @@ class _ThemesPage extends StatelessWidget {
         icon: Icons.add_circle,
         title: 'Crear mi tema',
         subtitle: 'Parte del tema actual y cámbialo todo',
-        trailing: Icon(Icons.chevron_right, color: Pro.sub),
+        trailing: const Icon(Icons.chevron_right),
         onTap: () => Navigator.of(context).push(_route(_ThemeEditor(
           base: m.current.copyWith(
             id: 'mio-${DateTime.now().millisecondsSinceEpoch}',
@@ -723,7 +762,7 @@ class _ThemeEditorState extends State<_ThemeEditor> {
         icon: icon,
         title: title,
         subtitle: value,
-        trailing: Icon(Icons.sync, color: Pro.text),
+        trailing: const Icon(Icons.sync),
         onTap: next,
       );
 
@@ -773,6 +812,9 @@ class _ThemeEditorState extends State<_ThemeEditor> {
       const SizedBox(height: 10),
       _option(Icons.center_focus_strong, 'Al enfocar una app', focuses[t.focus] ?? 'Cómic con contorno',
           () => _set(t.copyWith(focus: _cycle(focuses.keys.toList(), t.focus)))),
+      _option(Icons.view_carousel, 'Disposición del inicio',
+          t.showcase ? 'Escaparate (imagen grande, como Apple TV)' : 'Clásica (hora grande y paneles)',
+          () => _set(t.copyWith(layout: t.showcase ? 'clasico' : 'escaparate'))),
       _option(Icons.space_bar, 'Espacio entre apps', spacings[t.spacing] ?? 'Normal',
           () => _set(t.copyWith(spacing: _cycle(spacings.keys.toList(), t.spacing)))),
       _stepper('Oscurecer el fondo', t.veil * 10, 1, 0, 10, (v) => _set(t.copyWith(veil: v / 10))),
@@ -791,7 +833,7 @@ class _ThemeEditorState extends State<_ThemeEditor> {
         icon: Icons.wallpaper,
         title: 'Fondo de pantalla',
         subtitle: t.wallpaper.startsWith('file:') ? 'Una foto tuya' : (SgThemes.wallpapers[t.wallpaper] ?? t.wallpaper),
-        trailing: Icon(Icons.chevron_right, color: Pro.sub),
+        trailing: const Icon(Icons.chevron_right),
         onTap: () {
           // Para ver el fondo del tema hay que quitar el fondo general, si había uno.
           if (_model.wallpaperOverride.isNotEmpty) _model.setWallpaperOverride('');
@@ -986,7 +1028,7 @@ class _WallpaperPageState extends State<_WallpaperPage> {
         icon: Icons.photo_library,
         title: 'Mis imágenes',
         subtitle: fileNow ? 'Ahora mismo: una foto tuya' : 'Fotos guardadas en el deco o en un USB',
-        trailing: Icon(Icons.chevron_right, color: Pro.sub),
+        trailing: const Icon(Icons.chevron_right),
         onTap: () => Navigator.of(context).push(_route(_GalleryPage(onPicked: (id) => _choose(m, id)))),
       ),
       const SizedBox(height: 6),

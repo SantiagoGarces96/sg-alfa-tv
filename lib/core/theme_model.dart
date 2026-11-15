@@ -67,6 +67,7 @@ class SgTheme {
   final bool hint; // nombre de la app enfocada y «OK para abrir»
   final String spacing; // compacto | normal | amplio
   final bool focusName; // nombre solo bajo la app enfocada (como Apple TV)
+  final String layout; // clasico | escaparate (imagen grande arriba y franja de apps, como Apple TV)
 
   const SgTheme({
     required this.id,
@@ -99,7 +100,10 @@ class SgTheme {
     this.hint = true,
     this.spacing = 'normal',
     this.focusName = false,
+    this.layout = 'clasico',
   });
+
+  bool get showcase => layout == 'escaparate';
 
   /// Sin contornos ni pegatinas: estilo limpio.
   bool get clean => focus != 'comic';
@@ -135,6 +139,7 @@ class SgTheme {
     bool? hint,
     String? spacing,
     bool? focusName,
+    String? layout,
   }) =>
       SgTheme(
         id: id ?? this.id,
@@ -167,6 +172,7 @@ class SgTheme {
         hint: hint ?? this.hint,
         spacing: spacing ?? this.spacing,
         focusName: focusName ?? this.focusName,
+        layout: layout ?? this.layout,
       );
 
   Map<String, dynamic> toJson() => {
@@ -199,6 +205,7 @@ class SgTheme {
         'hint': hint,
         'spacing': spacing,
         'focusName': focusName,
+        'layout': layout,
       };
 
   static SgTheme fromJson(Map<String, dynamic> j) {
@@ -236,6 +243,7 @@ class SgTheme {
       hint: j['hint'] != false,
       spacing: '${j['spacing'] ?? base.spacing}',
       focusName: j['focusName'] == true,
+      layout: '${j['layout'] ?? 'clasico'}',
     );
   }
 }
@@ -368,21 +376,22 @@ class SgThemes {
     shadow: 0,
     radius: 18,
     font: SgFonts.system,
-    wallpaper: 'tema',
+    wallpaper: 'atardecer',
     dock: 'cristal',
     clock: 'pequeno',
-    tileSize: 'l',
+    tileSize: 'm',
+    layout: 'escaparate',
     today: false,
     mascot: false,
     focus: 'escala',
     caps: false,
     veil: 0.4,
-    weight: 'ligera',
+    weight: 'normal',
     greeting: false,
     brand: false,
     hint: false,
-    spacing: 'amplio',
-    focusName: true,
+    spacing: 'normal',
+    focusName: false,
   );
 
   /// Android / Google TV minimalista: gris oscuro, aro blanco al enfocar, nombres siempre visibles.

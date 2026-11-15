@@ -111,6 +111,14 @@ class TopBar extends StatelessWidget {
         const SizedBox(width: 6),
         const _DeviceActions(),
         const Spacer(),
+        if (theme.showcase) ...[
+          BarIcon(
+              icon: today.adblock ? Icons.shield : Icons.shield_outlined,
+              alert: !today.adblock,
+              onPressed: onProtection),
+          const SizedBox(width: 10),
+          const TopClock(),
+        ] else
         RetroButton(
           color: today.adblock ? Retro.positive : Retro.cream,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
@@ -269,6 +277,76 @@ class _HomeHeroState extends State<HomeHero> {
       ),
     );
   }
+}
+
+/// Escaparate (como Apple TV): solo el nombre de la app enfocada, grande, sobre la imagen.
+class ShowcaseHero extends StatelessWidget {
+  const ShowcaseHero({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final focused = context.select<AppsModel, String?>((m) => m.focusedLabel);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(40, 0, 40, 26),
+      child: Align(
+        alignment: Alignment.bottomLeft,
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          child: focused == null
+              ? const SizedBox.shrink()
+              : Text(
+                  focused,
+                  key: ValueKey(focused),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 46,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                    shadows: [Shadow(color: Color(0x99000000), blurRadius: 18, offset: Offset(0, 3))],
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Hora pequeña arriba a la derecha (escaparate).
+class TopClock extends StatefulWidget {
+  const TopClock({super.key});
+
+  @override
+  State<TopClock> createState() => _TopClockState();
+}
+
+class _TopClockState extends State<TopClock> {
+  DateTime _now = DateTime.now();
+  Timer? _t;
+
+  @override
+  void initState() {
+    super.initState();
+    _t = Timer.periodic(const Duration(seconds: 15), (_) {
+      final n = DateTime.now();
+      if (n.minute != _now.minute) setState(() => _now = n);
+    });
+  }
+
+  @override
+  void dispose() {
+    _t?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.35), borderRadius: BorderRadius.circular(20)),
+        child: Text('${_now.hour.toString().padLeft(2, '0')}:${_now.minute.toString().padLeft(2, '0')}',
+            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+      );
 }
 
 /// «TU TELE HOY»: anuncios bloqueados, avisos cerrados y la app que sueles ver a esta hora.
