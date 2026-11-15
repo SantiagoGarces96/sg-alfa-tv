@@ -34,24 +34,6 @@ class _RetroScaffold extends StatelessWidget {
         backgroundColor: Pro.bg,
         body: Stack(
           children: [
-            Positioned(
-              right: -120,
-              top: -120,
-              child: Container(
-                width: 420,
-                height: 420,
-                decoration: const BoxDecoration(color: Color(0xFF3A2547), shape: BoxShape.circle),
-              ),
-            ),
-            Positioned(
-              left: -80,
-              bottom: -160,
-              child: Container(
-                width: 380,
-                height: 380,
-                decoration: const BoxDecoration(color: Color(0xFF4A1F2E), shape: BoxShape.circle),
-              ),
-            ),
             SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(48, 28, 48, 0),
@@ -138,7 +120,7 @@ class _SgAutomationsScreenState extends State<SgAutomationsScreen> {
     final on = _macros.where((m) => m['enabled'] == true).length;
 
     return _RetroScaffold(
-      title: 'AUTOMATIZACIONES',
+      title: 'Automatizaciones',
       actions: [
         ProButton(
           color: Pro.accent,
@@ -240,7 +222,7 @@ class _MacroRow extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Text('EDITAR ›', style: TextStyle(fontSize: 13)),
+                  const Text('Editar ›', style: TextStyle(fontSize: 13)),
                 ],
               ),
             ),
@@ -253,7 +235,7 @@ class _MacroRow extends StatelessWidget {
               focusColor: Pro.accent,
               onPressed: onToggle,
               padding: const EdgeInsets.symmetric(vertical: 18),
-              child: Center(child: Text(on ? 'ENCENDIDA' : 'APAGADA', style: const TextStyle(fontSize: 14))),
+              child: Center(child: Text(on ? 'Encendida' : 'Apagada', style: const TextStyle(fontSize: 14))),
             ),
           ),
         ],
@@ -419,7 +401,7 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('¿EN QUÉ APP?', style: Pro.title(22, color: Pro.accent)),
+              Text('¿En qué app?', style: Pro.title(22, color: Pro.accent)),
               const SizedBox(height: 10),
               Expanded(
                 child: ListView(
@@ -471,7 +453,7 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label.toUpperCase(), style: Pro.body(14, color: Pro.accent, weight: FontWeight.w800)),
+            Text(label, style: Pro.body(14, color: Pro.accent, weight: FontWeight.w800)),
             const SizedBox(height: 6),
             ProButton(
               autofocus: autofocus,
@@ -511,7 +493,7 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label.toUpperCase(), style: Pro.title(22, color: Pro.accent)),
+              Text(label, style: Pro.title(22, color: Pro.accent)),
               const SizedBox(height: 12),
               TextField(
                 controller: temp,
@@ -585,7 +567,7 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
   Widget build(BuildContext context) {
     final isButton = _trigger == 'BUTTON';
     return _RetroScaffold(
-      title: widget.isNew ? 'NUEVA AUTOMATIZACIÓN' : 'EDITAR AUTOMATIZACIÓN',
+      title: widget.isNew ? 'Nueva automatización' : 'Editar automatización',
       actions: [
         ProButton(
           color: Pro.accent,
@@ -606,7 +588,7 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
             children: [
               Expanded(child: _field(_name, 'Nombre', 'Ej. Quitar «¿Sigues viendo?»', autofocus: true)),
               const SizedBox(width: 12),
-              _choice(_enabled ? 'ENCENDIDA' : 'APAGADA', _enabled, () => _set(() => _enabled = !_enabled)),
+              _choice(_enabled ? 'Encendida' : 'Apagada', _enabled, () => _set(() => _enabled = !_enabled)),
             ],
           ),
           const SizedBox(height: 6),
@@ -664,7 +646,7 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
               Container(
                 width: 120,
                 alignment: Alignment.center,
-                child: Text(_delay == 0 ? 'NADA' : '$_delay s', style: Pro.title(22)),
+                child: Text(_delay == 0 ? 'Nada' : '$_delay s', style: Pro.title(22)),
               ),
               ProButton(
                 onPressed: _delay < 30 ? () => _set(() => _delay++) : null,

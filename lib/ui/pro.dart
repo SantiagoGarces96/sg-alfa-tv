@@ -24,6 +24,9 @@ class Pro {
   static Color get accent => dark ? const Color(0xFF3D8BFF) : const Color(0xFF007AFF);
   static Color get green => const Color(0xFF34C759);
 
+  /// Acciones peligrosas (desinstalar, borrar): texto rojo sobre tarjeta neutra.
+  static const danger = Color(0xFFFF453A);
+
   /// Texto legible sobre un fondo cualquiera.
   static Color on(Color c) => c.computeLuminance() > 0.45 ? const Color(0xFF1C1C1E) : Colors.white;
 
@@ -88,9 +91,10 @@ class _ProButtonState extends State<ProButton> {
 
   @override
   Widget build(BuildContext context) {
-    final filled = !Pro._neutral(widget.color);
+    final danger = widget.color == Pro.danger;
+    final filled = !danger && !Pro._neutral(widget.color);
     final bg = filled ? Pro.accent : (_focused ? Pro.cardFocus : Pro.card);
-    final fg = filled ? Colors.white : Pro.text;
+    final fg = filled ? Colors.white : (danger ? Pro.danger : Pro.text);
     return Padding(
       padding: const EdgeInsets.only(right: 8, bottom: 6),
       child: InkWell(

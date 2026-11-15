@@ -103,7 +103,7 @@ class _AppOptionsState extends State<_AppOptions> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(app.label.toUpperCase(), maxLines: 2, overflow: TextOverflow.ellipsis, style: Pro.title(24)),
+              Text(app.label, maxLines: 2, overflow: TextOverflow.ellipsis, style: Pro.title(24)),
               const SizedBox(height: 16),
               option(
                 Icons.play_arrow_rounded,
@@ -135,7 +135,7 @@ class _AppOptionsState extends State<_AppOptions> {
               option(Icons.delete_outline, 'Desinstalar', () {
                 Navigator.pop(context);
                 Native.uninstall(app.package);
-              }, color: const Color(0xFFFFB4B4)),
+              }, color: Pro.danger),
             ],
           ),
         ),

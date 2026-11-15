@@ -19,7 +19,6 @@ import '../core/update_model.dart';
 import 'automations_screen.dart';
 import 'home_widgets.dart';
 import 'pro.dart';
-import 'retro.dart';
 
 Future<void> showSettingsPanel(BuildContext context, {String? page}) => showGeneralDialog(
       context: context,
