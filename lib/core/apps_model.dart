@@ -54,6 +54,7 @@ class AppsModel extends ChangeNotifier {
 
   /// Nombre de la app enfocada (se muestra en grande en el inicio).
   String? focusedLabel;
+  String? focusedPackage;
 
   List<TvApp> get favorites => [
         for (final p in _favorites)
@@ -121,9 +122,10 @@ class AppsModel extends ChangeNotifier {
     });
   }
 
-  void setFocused(String? label) {
+  void setFocused(String? label, [String? package]) {
     if (focusedLabel == label) return;
     focusedLabel = label;
+    focusedPackage = package;
     notifyListeners();
   }
 

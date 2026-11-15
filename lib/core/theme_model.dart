@@ -376,7 +376,7 @@ class SgThemes {
     shadow: 0,
     radius: 18,
     font: SgFonts.system,
-    wallpaper: 'atardecer',
+    wallpaper: 'app',
     dock: 'cristal',
     clock: 'pequeno',
     tileSize: 'm',
@@ -552,10 +552,11 @@ class SgThemes {
     'pixel': 'Paisaje 8-bit',
     'tema': 'Degradado del tema',
     'solido': 'Color liso',
+    'app': 'Imagen de la app enfocada',
   };
 
   static String? wallpaperAsset(String id) =>
-      id == 'tema' || id == 'solido' || id.startsWith('file:') || !wallpapers.containsKey(id)
+      id == 'tema' || id == 'solido' || id == 'app' || id.startsWith('file:') || !wallpapers.containsKey(id)
           ? null
           : 'assets/wallpapers/$id.jpg';
 

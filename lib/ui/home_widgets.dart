@@ -91,7 +91,19 @@ class TopBar extends StatelessWidget {
       down: Nav.belowTopBar,
       child: Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 24, 0),
-      child: Row(children: [
+      child: theme.showcase
+          ? Row(children: [
+              const Spacer(),
+              BarIcon(icon: Icons.settings_outlined, onPressed: onSettings, focusNode: Nav.settings),
+              const SizedBox(width: 6),
+              BarIcon(
+                  icon: today.adblock ? Icons.shield : Icons.shield_outlined,
+                  alert: !today.adblock,
+                  onPressed: onProtection),
+              const SizedBox(width: 12),
+              const TopClock(),
+            ])
+          : Row(children: [
         if (theme.brand) ...[
           Container(
             width: 38,
@@ -287,9 +299,9 @@ class ShowcaseHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final focused = context.select<AppsModel, String?>((m) => m.focusedLabel);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(40, 0, 40, 26),
+      padding: const EdgeInsets.fromLTRB(44, 4, 44, 0),
       child: Align(
-        alignment: Alignment.bottomLeft,
+        alignment: Alignment.topLeft,
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 220),
           child: focused == null
@@ -297,18 +309,65 @@ class ShowcaseHero extends StatelessWidget {
               : Text(
                   focused,
                   key: ValueKey(focused),
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 46,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 54,
+                    height: 0.95,
+                    fontWeight: FontWeight.w900,
                     letterSpacing: -0.5,
                     shadows: [Shadow(color: Color(0x99000000), blurRadius: 18, offset: Offset(0, 3))],
                   ),
                 ),
         ),
       ),
+    );
+  }
+}
+
+/// Fondo del escaparate: la imagen de la app enfocada, a pantalla completa y difuminada.
+class AppBackdrop extends StatelessWidget {
+  final Color fallback;
+
+  const AppBackdrop({super.key, required this.fallback});
+
+  @override
+  Widget build(BuildContext context) {
+    final pkg = context.select<AppsModel, String?>((m) => m.focusedPackage);
+    final apps = context.read<AppsModel>();
+    return RepaintBoundary(
+      child: Stack(fit: StackFit.expand, children: [
+        ColoredBox(color: fallback),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 450),
+          child: pkg == null
+              ? const SizedBox.expand(key: ValueKey('none'))
+              : FutureBuilder<Uint8List?>(
+                  key: ValueKey(pkg),
+                  future: apps.image(pkg),
+                  builder: (_, s) => s.data == null
+                      ? const SizedBox.expand()
+                      : Image.memory(s.data!,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: double.infinity,
+                          cacheWidth: 40,
+                          filterQuality: FilterQuality.medium,
+                          gaplessPlayback: true),
+                ),
+        ),
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0x33000000), Color(0x22000000), Color(0xCC000000)],
+              stops: [0, 0.5, 1],
+            ),
+          ),
+        ),
+      ]),
     );
   }
 }

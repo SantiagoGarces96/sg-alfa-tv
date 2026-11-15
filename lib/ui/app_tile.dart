@@ -135,7 +135,7 @@ class _AppTileState extends State<AppTile> {
   void _onFocus(bool f) {
     setState(() => _focused = f);
     if (f) {
-      context.read<AppsModel>().setFocused(widget.app.label);
+      context.read<AppsModel>().setFocused(widget.app.label, widget.app.package);
       if (widget.onFocusScroll != null) {
         widget.onFocusScroll!(context);
       } else {

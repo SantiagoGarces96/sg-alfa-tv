@@ -77,7 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // Escaparate (Apple TV): la imagen ocupa ~60 % de la pantalla y la franja de apps queda abajo,
     // con la fila siguiente asomando.
     final heroHeight = theme.showcase
-        ? (size.height * 0.62 - _topBar).clamp(200.0, 2000.0)
+        ? (size.height * 0.70 - _topBar).clamp(200.0, 2000.0)
         : (size.height - _topBar - _dockHeight - 30).clamp(260.0, 2000.0);
 
     return PopScope(
@@ -131,7 +131,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: theme.showcase ? const ShowcaseHero() : const HomeHero())),
                         if (theme.dock != 'oculto') SliverToBoxAdapter(child: _dock(favorites, theme)),
                         if (others.isNotEmpty || theme.dock == 'oculto') ...[
-                          const SliverToBoxAdapter(child: SectionTitle('Todas las apps')),
+                          if (!theme.showcase)
+                            const SliverToBoxAdapter(child: SectionTitle('Todas las apps'))
+                          else
+                            const SliverToBoxAdapter(child: SizedBox(height: 26)),
                           SliverToBoxAdapter(
                             child: _grid(theme.dock == 'oculto' ? [...favorites, ...others] : others, theme,
                                 favorites.isEmpty || theme.dock == 'oculto')),
@@ -174,6 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static double _gap(SgTheme t) => switch (t.spacing) { 'compacto' => 14, 'amplio' => 30, _ => 21 };
 
   Widget _wallpaper(SgTheme t, String id, Size size) {
+    if (id == 'app') return AppBackdrop(key: const ValueKey('app-backdrop'), fallback: t.night);
     if (id == 'solido') {
       return ColoredBox(key: ValueKey('solid-${t.id}'), color: t.night, child: SizedBox(width: size.width, height: size.height));
     }
