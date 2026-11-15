@@ -14,7 +14,12 @@ class Nav {
   static final suggestion = FocusNode(debugLabel: 'nav-suggestion');
   static final dock = FocusNode(debugLabel: 'nav-dock-first');
 
-  static bool _usable(FocusNode n) => n.context != null && n.canRequestFocus;
+  /// ¿Está ese botón en pantalla ahora mismo? (En temas sin Alfi la sugerencia no existe y su
+  /// nodo conserva un contexto viejo: hay que comprobar que siga montado.)
+  static bool _usable(FocusNode n) {
+    final c = n.context;
+    return c != null && c.mounted && n.canRequestFocus;
+  }
 
   static void toTopBar() => settings.requestFocus();
 
