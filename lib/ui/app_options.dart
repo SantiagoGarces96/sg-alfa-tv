@@ -9,7 +9,7 @@ import 'package:provider/provider.dart';
 
 import '../core/apps_model.dart';
 import '../core/native.dart';
-import 'retro.dart';
+import 'pro.dart';
 
 Future<void> showAppOptions(BuildContext context, TvApp app) => showDialog(
   context: context,
@@ -75,7 +75,7 @@ class _AppOptionsState extends State<_AppOptions> {
 
     Widget option(IconData icon, String label, VoidCallback onTap, {bool autofocus = false, Color? color}) => Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: RetroButton(
+      child: ProButton(
         autofocus: autofocus,
         color: color,
         onPressed: onTap,
@@ -98,12 +98,12 @@ class _AppOptionsState extends State<_AppOptions> {
         child: Container(
           width: 520,
           padding: const EdgeInsets.all(20),
-          decoration: Retro.box(color: Retro.night, shadow: 8),
+          decoration: Pro.box(color: Pro.bg, shadow: 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(app.label.toUpperCase(), maxLines: 2, overflow: TextOverflow.ellipsis, style: Retro.title(24)),
+              Text(app.label.toUpperCase(), maxLines: 2, overflow: TextOverflow.ellipsis, style: Pro.title(24)),
               const SizedBox(height: 16),
               option(
                 Icons.play_arrow_rounded,
@@ -113,7 +113,7 @@ class _AppOptionsState extends State<_AppOptions> {
                   apps.launch(app);
                 },
                 autofocus: true,
-                color: Retro.mustard,
+                color: Pro.accent,
               ),
               option(
                 fav ? Icons.star : Icons.star_border,

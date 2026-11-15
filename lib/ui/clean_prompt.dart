@@ -12,7 +12,7 @@ import '../core/alfi_model.dart';
 import '../core/native.dart';
 import 'home_widgets.dart';
 import 'mascot.dart';
-import 'retro.dart';
+import 'pro.dart';
 
 Future<void> showCleanPrompt(BuildContext context) => showDialog(
       context: context,
@@ -79,7 +79,7 @@ class _CleanPromptState extends State<_CleanPrompt> {
       child: Container(
         width: 560,
         padding: const EdgeInsets.all(18),
-        decoration: Retro.box(color: Retro.night, shadow: 8),
+        decoration: Pro.box(color: Pro.bg, shadow: 8),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
             const AlfiSprite(size: 84),
@@ -87,24 +87,24 @@ class _CleanPromptState extends State<_CleanPrompt> {
             Expanded(
               child: Container(
                 padding: const EdgeInsets.all(12),
-                decoration: Retro.box(color: Retro.cream, radius: 4, border: 3, shadow: 3),
+                decoration: Pro.box(color: Pro.text, radius: 4, border: 3, shadow: 3),
                 child: Text(
                   '¡Lunes de limpieza! Voy a borrar la caché de tus apps$size. '
                   'Solo la caché: tus cuentas y datos no se tocan. Tardo un minuto; no toques el mando.',
-                  style: TextStyle(color: Retro.on(Retro.cream), fontSize: 15, fontWeight: FontWeight.w700, height: 1.3),
+                  style: TextStyle(color: Pro.on(Pro.text), fontSize: 15, fontWeight: FontWeight.w700, height: 1.3),
                 ),
               ),
             ),
           ]),
           const SizedBox(height: 16),
           Row(children: [
-            RetroButton(
+            ProButton(
               autofocus: true,
-              color: Retro.teal,
+              color: Pro.accent,
               onPressed: _start,
               child: Text('EMPEZAR YA ($_left)'),
             ),
-            RetroButton(onPressed: _skip, child: const Text('HOY NO')),
+            ProButton(onPressed: _skip, child: const Text('HOY NO')),
           ]),
         ]),
       ),

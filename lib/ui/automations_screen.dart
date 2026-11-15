@@ -10,7 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../core/apps_model.dart';
-import 'retro.dart';
+import 'pro.dart';
 
 const _channel = MethodChannel('tv.sgalfa.home/protection');
 
@@ -31,7 +31,7 @@ class _RetroScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        backgroundColor: Retro.night,
+        backgroundColor: Pro.bg,
         body: Stack(
           children: [
             Positioned(
@@ -60,7 +60,7 @@ class _RetroScaffold extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Text(title, style: Retro.title(34)),
+                        Text(title, style: Pro.title(34)),
                         const Spacer(),
                         ...actions,
                       ],
@@ -140,45 +140,45 @@ class _SgAutomationsScreenState extends State<SgAutomationsScreen> {
     return _RetroScaffold(
       title: 'AUTOMATIZACIONES',
       actions: [
-        RetroButton(
-          color: Retro.red,
-          focusColor: Retro.mustard,
+        ProButton(
+          color: Pro.accent,
+          focusColor: Pro.accent,
           onPressed: () => _edit(null, isNew: true),
-          child: const Row(children: [Icon(Icons.add), SizedBox(width: 6), Text('CREAR')]),
+          child: const Row(children: [Icon(Icons.add), SizedBox(width: 6), Text('Crear')]),
         ),
         const SizedBox(width: 12),
-        RetroButton(
+        ProButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Row(children: [Icon(Icons.arrow_back), SizedBox(width: 6), Text('VOLVER')]),
+          child: const Row(children: [Icon(Icons.arrow_back), SizedBox(width: 6), Text('Volver')]),
         ),
       ],
       child: _loading
-          ? Center(child: CircularProgressIndicator(color: Retro.mustard))
+          ? Center(child: CircularProgressIndicator(color: Pro.accent))
           : ListView(
               padding: const EdgeInsets.only(bottom: 40, right: 8),
               children: [
                 Text(
                   'CUANDO aparece algo en la tele → la tele lo hace sola. '
                   'Para que funcionen, el servicio «SG Alfa · Automatizaciones» tiene que estar activado.',
-                  style: Retro.body(16, weight: FontWeight.w500),
+                  style: Pro.body(16, weight: FontWeight.w500),
                 ),
                 const SizedBox(height: 12),
                 if (!_automationOn)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: RetroButton(
-                      color: Retro.mustard,
-                      focusColor: Retro.cream,
+                    child: ProButton(
+                      color: Pro.accent,
+                      focusColor: Pro.text,
                       onPressed: () async {
                         await _channel.invokeMethod('openAccessibilitySettings');
                       },
                       child: const Text('⚠ EL SERVICIO ESTÁ APAGADO — PULSA PARA ACTIVARLO'),
                     ),
                   ),
-                RetroSticker('MIS AUTOMATIZACIONES · $on/${_macros.length} ENCENDIDAS'),
+                ProTag('MIS AUTOMATIZACIONES · $on/${_macros.length} ENCENDIDAS'),
                 const SizedBox(height: 12),
                 if (_macros.isEmpty)
-                  Text('No tienes ninguna. Pulsa CREAR o añade una plantilla.', style: Retro.body(16)),
+                  Text('No tienes ninguna. Pulsa CREAR o añade una plantilla.', style: Pro.body(16)),
                 for (final m in _macros) _MacroRow(
                   macro: m,
                   autofocus: m == _macros.first,
@@ -186,7 +186,7 @@ class _SgAutomationsScreenState extends State<SgAutomationsScreen> {
                   onToggle: () => _save({...m, 'enabled': m['enabled'] != true}),
                 ),
                 const SizedBox(height: 22),
-                RetroSticker('PLANTILLAS', color: Retro.teal),
+                ProTag('PLANTILLAS', color: Pro.accent),
                 const SizedBox(height: 12),
                 for (final t in _templates)
                   _TemplateRow(
@@ -222,7 +222,7 @@ class _MacroRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: RetroButton(
+            child: ProButton(
               autofocus: autofocus,
               onPressed: onEdit,
               child: Row(
@@ -248,9 +248,9 @@ class _MacroRow extends StatelessWidget {
           const SizedBox(width: 8),
           SizedBox(
             width: 128,
-            child: RetroButton(
-              color: on ? Retro.positive : Retro.muted,
-              focusColor: Retro.mustard,
+            child: ProButton(
+              color: on ? Pro.green : Pro.sub,
+              focusColor: Pro.accent,
               onPressed: onToggle,
               padding: const EdgeInsets.symmetric(vertical: 18),
               child: Center(child: Text(on ? 'ENCENDIDA' : 'APAGADA', style: const TextStyle(fontSize: 14))),
@@ -279,14 +279,14 @@ class _TemplateRow extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 margin: const EdgeInsets.only(right: 5, bottom: 5),
-                decoration: Retro.box(color: Retro.cream, shadow: 4),
+                decoration: Pro.box(color: Pro.text, shadow: 4),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('${template['name']}',
-                        style: TextStyle(color: Retro.ink, fontSize: 16, fontWeight: FontWeight.w800)),
+                        style: TextStyle(color: Pro.text, fontSize: 16, fontWeight: FontWeight.w800)),
                     Text('${template['description']}',
-                        style: TextStyle(color: Retro.ink, fontSize: 13, fontWeight: FontWeight.w500)),
+                        style: TextStyle(color: Pro.text, fontSize: 13, fontWeight: FontWeight.w500)),
                   ],
                 ),
               ),
@@ -295,11 +295,11 @@ class _TemplateRow extends StatelessWidget {
             if (added)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Text('✓ YA ESTÁ', style: Retro.body(14)),
+                child: Text('✓ YA ESTÁ', style: Pro.body(14)),
               )
             else
-              RetroButton(color: Retro.teal, onPressed: onAdd, child: const Text('AÑADIR')),
-            RetroButton(onPressed: onCopy, child: const Text('COPIAR Y CAMBIAR')),
+              ProButton(color: Pro.accent, onPressed: onAdd, child: const Text('Añadir')),
+            ProButton(onPressed: onCopy, child: const Text('Copiar y cambiar')),
           ],
         ),
       );
@@ -415,23 +415,23 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
           width: 520,
           height: 560,
           padding: const EdgeInsets.all(16),
-          decoration: Retro.box(color: Retro.cream, shadow: 8),
+          decoration: Pro.box(color: Pro.text, shadow: 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('¿EN QUÉ APP?', style: Retro.title(22, color: Retro.red)),
+              Text('¿EN QUÉ APP?', style: Pro.title(22, color: Pro.accent)),
               const SizedBox(height: 10),
               Expanded(
                 child: ListView(
                   children: [
-                    RetroButton(
+                    ProButton(
                       autofocus: true,
-                      color: Retro.mustard,
+                      color: Pro.accent,
                       onPressed: () => Navigator.of(ctx).pop(''),
-                      child: const Text('EN TODAS LAS APPS'),
+                      child: const Text('En todas las apps'),
                     ),
                     for (final a in apps)
-                      RetroButton(
+                      ProButton(
                         onPressed: () => Navigator.of(ctx).pop(a.package),
                         child: Text(a.label),
                       ),
@@ -452,9 +452,9 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
     return a.isEmpty ? _app : a.first.label;
   }
 
-  Widget _choice(String label, bool selected, VoidCallback onTap, {IconData? icon}) => RetroButton(
-        color: selected ? Retro.mustard : Retro.cream,
-        focusColor: selected ? Retro.mustard : Retro.cream,
+  Widget _choice(String label, bool selected, VoidCallback onTap, {IconData? icon}) => ProButton(
+        color: selected ? Pro.accent : Pro.text,
+        focusColor: selected ? Pro.accent : Pro.text,
         onPressed: onTap,
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Icon(selected ? Icons.radio_button_checked : Icons.radio_button_off, size: 20),
@@ -471,9 +471,9 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label.toUpperCase(), style: Retro.body(14, color: Retro.mustard, weight: FontWeight.w800)),
+            Text(label.toUpperCase(), style: Pro.body(14, color: Pro.accent, weight: FontWeight.w800)),
             const SizedBox(height: 6),
-            RetroButton(
+            ProButton(
               autofocus: autofocus,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               onPressed: () => _editText(c, label, hint),
@@ -484,13 +484,13 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
                     style: TextStyle(
                       fontSize: 19,
                       fontWeight: FontWeight.w700,
-                      color: c.text.isEmpty ? const Color(0xFF8A8172) : Retro.ink,
+                      color: c.text.isEmpty ? const Color(0xFF8A8172) : Pro.text,
                     ),
                   ),
                 ),
                 const Icon(Icons.keyboard, size: 22),
                 const SizedBox(width: 6),
-                const Text('ESCRIBIR', style: TextStyle(fontSize: 13)),
+                const Text('Escribir', style: TextStyle(fontSize: 13)),
               ]),
             ),
           ],
@@ -506,20 +506,20 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
         child: Container(
           width: 760,
           padding: const EdgeInsets.all(20),
-          decoration: Retro.box(color: Retro.cream, shadow: 8),
+          decoration: Pro.box(color: Pro.text, shadow: 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label.toUpperCase(), style: Retro.title(22, color: Retro.red)),
+              Text(label.toUpperCase(), style: Pro.title(22, color: Pro.accent)),
               const SizedBox(height: 12),
               TextField(
                 controller: temp,
                 autofocus: true,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (v) => Navigator.of(ctx).pop(v),
-                style: TextStyle(color: Retro.ink, fontSize: 22, fontWeight: FontWeight.w700),
-                cursorColor: Retro.red,
+                style: TextStyle(color: Pro.text, fontSize: 22, fontWeight: FontWeight.w700),
+                cursorColor: Pro.accent,
                 decoration: InputDecoration(
                   hintText: hint,
                   hintStyle: const TextStyle(color: Color(0xFF8A8172)),
@@ -527,29 +527,29 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Retro.ink, width: 3),
+                    borderSide: BorderSide(color: Pro.text, width: 3),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Retro.ink, width: 3),
+                    borderSide: BorderSide(color: Pro.text, width: 3),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Retro.red, width: 4),
+                    borderSide: BorderSide(color: Pro.accent, width: 4),
                   ),
                 ),
               ),
               const SizedBox(height: 10),
               Text('Escribe con el teclado de la tele y pulsa «Listo» o «Intro».',
-                  style: TextStyle(color: Retro.ink, fontSize: 15, fontWeight: FontWeight.w600)),
+                  style: TextStyle(color: Pro.text, fontSize: 15, fontWeight: FontWeight.w600)),
               const SizedBox(height: 14),
               Row(children: [
-                RetroButton(
-                  color: Retro.teal,
+                ProButton(
+                  color: Pro.accent,
                   onPressed: () => Navigator.of(ctx).pop(temp.text),
-                  child: const Text('LISTO'),
+                  child: const Text('Listo'),
                 ),
-                RetroButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('CANCELAR')),
+                ProButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancelar')),
               ]),
             ],
           ),
@@ -566,14 +566,14 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
   Widget _block(String sticker, Color color, String subtitle, List<Widget> children) => Container(
         margin: const EdgeInsets.only(bottom: 16, right: 6),
         padding: const EdgeInsets.all(16),
-        decoration: Retro.box(color: Retro.panel, shadow: 6, borderColor: Retro.ink),
+        decoration: Pro.box(color: Pro.card, shadow: 6, borderColor: Pro.text),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
-              RetroSticker(sticker, color: color, textColor: color == Retro.mustard ? Retro.ink : Retro.cream),
+              ProTag(sticker, color: color, textColor: color == Pro.accent ? Pro.text : Pro.text),
               const SizedBox(width: 12),
-              Expanded(child: Text(subtitle, style: Retro.body(15, weight: FontWeight.w500))),
+              Expanded(child: Text(subtitle, style: Pro.body(15, weight: FontWeight.w500))),
             ]),
             const SizedBox(height: 12),
             ...children,
@@ -587,15 +587,15 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
     return _RetroScaffold(
       title: widget.isNew ? 'NUEVA AUTOMATIZACIÓN' : 'EDITAR AUTOMATIZACIÓN',
       actions: [
-        RetroButton(
-          color: Retro.teal,
+        ProButton(
+          color: Pro.accent,
           onPressed: _save,
-          child: const Row(children: [Icon(Icons.save), SizedBox(width: 6), Text('GUARDAR')]),
+          child: const Row(children: [Icon(Icons.save), SizedBox(width: 6), Text('Guardar')]),
         ),
         const SizedBox(width: 12),
-        RetroButton(
+        ProButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('CANCELAR'),
+          child: const Text('Cancelar'),
         ),
       ],
       child: ListView(
@@ -610,7 +610,7 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
             ],
           ),
           const SizedBox(height: 6),
-          _block('CUANDO', Retro.teal, 'Qué tiene que aparecer en la pantalla de la tele.', [
+          _block('CUANDO', Pro.accent, 'Qué tiene que aparecer en la pantalla de la tele.', [
             Wrap(spacing: 4, children: [
               _choice('Aparece un botón', isButton, () => _set(() => _trigger = 'BUTTON'), icon: Icons.smart_button),
               _choice('Aparece un texto', !isButton, () => _set(() => _trigger = 'TEXT'), icon: Icons.text_fields),
@@ -625,16 +625,16 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
               isButton
                   ? 'Escríbelo como sale en la tele. Da igual mayúsculas o signos.'
                   : 'Al menos 3 letras. Se busca en todo lo que hay en pantalla.',
-              style: Retro.body(14, weight: FontWeight.w500),
+              style: Pro.body(14, weight: FontWeight.w500),
             ),
           ]),
-          _block('SOLO SI', Retro.mustard, 'Opcional: para no pulsar donde no debe.', [
+          _block('SOLO SI', Pro.accent, 'Opcional: para no pulsar donde no debe.', [
             _field(_context, 'También se ve alguno de estos textos', 'Ej. sigues viendo, deseas continuar'),
             Text('Sepáralos con comas. Muy útil para botones cortos como «Sí» u «OK».',
-                style: Retro.body(14, weight: FontWeight.w500)),
+                style: Pro.body(14, weight: FontWeight.w500)),
             const SizedBox(height: 10),
             Row(children: [
-              RetroButton(
+              ProButton(
                 onPressed: _pickApp,
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   const Icon(Icons.apps),
@@ -644,7 +644,7 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
               ),
             ]),
           ]),
-          _block('ENTONCES', Retro.red, 'Qué hace la tele.', [
+          _block('ENTONCES', Pro.accent, 'Qué hace la tele.', [
             Wrap(spacing: 4, children: [
               if (isButton)
                 _choice('Pulsar ese botón', _action == 'CLICK', () => _set(() => _action = 'CLICK'),
@@ -654,9 +654,9 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
             ]),
             const SizedBox(height: 10),
             Row(children: [
-              Text('Esperar antes:', style: Retro.body(16)),
+              Text('Esperar antes:', style: Pro.body(16)),
               const SizedBox(width: 12),
-              RetroButton(
+              ProButton(
                 onPressed: _delay > 0 ? () => _set(() => _delay--) : null,
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 child: const Text('−', style: TextStyle(fontSize: 22)),
@@ -664,48 +664,48 @@ class _SgMacroEditorState extends State<SgMacroEditor> {
               Container(
                 width: 120,
                 alignment: Alignment.center,
-                child: Text(_delay == 0 ? 'NADA' : '$_delay s', style: Retro.title(22)),
+                child: Text(_delay == 0 ? 'NADA' : '$_delay s', style: Pro.title(22)),
               ),
-              RetroButton(
+              ProButton(
                 onPressed: _delay < 30 ? () => _set(() => _delay++) : null,
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 child: const Text('+', style: TextStyle(fontSize: 22)),
               ),
             ]),
             Text('Si esperas, la tele vuelve a mirar antes de actuar: si el aviso ya se fue, no hace nada.',
-                style: Retro.body(14, weight: FontWeight.w500)),
+                style: Pro.body(14, weight: FontWeight.w500)),
           ]),
           Container(
             margin: const EdgeInsets.only(right: 6, bottom: 16),
             padding: const EdgeInsets.all(16),
-            decoration: Retro.box(color: Retro.cream, shadow: 6),
+            decoration: Pro.box(color: Pro.text, shadow: 6),
             child: Row(children: [
-              Icon(Icons.chat_bubble, color: Retro.red),
+              Icon(Icons.chat_bubble, color: Pro.accent),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(_summary,
-                    style: TextStyle(color: Retro.ink, fontSize: 18, fontWeight: FontWeight.w700)),
+                    style: TextStyle(color: Pro.text, fontSize: 18, fontWeight: FontWeight.w700)),
               ),
             ]),
           ),
           if (_error != null)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: Text('✗ $_error', style: Retro.body(18, color: const Color(0xFFFF8A8A))),
+              child: Text('✗ $_error', style: Pro.body(18, color: const Color(0xFFFF8A8A))),
             ),
           if (!widget.isNew)
             Row(children: [
               if (!_confirmDelete)
-                RetroButton(
+                ProButton(
                   color: const Color(0xFFFFB4B4),
                   onPressed: () => setState(() => _confirmDelete = true),
-                  child: const Text('ELIMINAR'),
+                  child: const Text('Eliminar'),
                 )
               else ...[
-                Text('¿Eliminarla?', style: Retro.body(18)),
+                Text('¿Eliminarla?', style: Pro.body(18)),
                 const SizedBox(width: 12),
-                RetroButton(color: Retro.red, onPressed: _delete, child: const Text('SÍ, ELIMINAR')),
-                RetroButton(onPressed: () => setState(() => _confirmDelete = false), child: const Text('NO')),
+                ProButton(color: Pro.accent, onPressed: _delete, child: const Text('SÍ, ELIMINAR')),
+                ProButton(onPressed: () => setState(() => _confirmDelete = false), child: const Text('NO')),
               ],
             ]),
         ],

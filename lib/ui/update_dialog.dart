@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../core/update_model.dart';
 import 'mascot.dart';
-import 'retro.dart';
+import 'pro.dart';
 
 Future<void> showUpdateDialog(BuildContext context) => showDialog(
       context: context,
@@ -48,7 +48,7 @@ class _UpdateDialog extends StatelessWidget {
       child: Container(
         width: 600,
         padding: const EdgeInsets.all(18),
-        decoration: Retro.box(color: Retro.night, shadow: 8),
+        decoration: Pro.box(color: Pro.bg, shadow: 8),
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
             const AlfiSprite(size: 80),
@@ -56,30 +56,30 @@ class _UpdateDialog extends StatelessWidget {
             Expanded(
               child: Container(
                 padding: const EdgeInsets.all(12),
-                decoration: Retro.box(color: Retro.cream, radius: 4, border: 3, shadow: 3),
+                decoration: Pro.box(color: Pro.text, radius: 4, border: 3, shadow: 3),
                 child: Text(message,
-                    style: TextStyle(color: Retro.on(Retro.cream), fontSize: 15, fontWeight: FontWeight.w700, height: 1.3)),
+                    style: TextStyle(color: Pro.on(Pro.text), fontSize: 15, fontWeight: FontWeight.w700, height: 1.3)),
               ),
             ),
           ]),
           if (u.available && !downloading && u.state != 'ready') ...[
             const SizedBox(height: 14),
-            Text('NOVEDADES', style: Retro.title(15)),
+            Text('NOVEDADES', style: Pro.title(15)),
             const SizedBox(height: 6),
             ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 150),
-              child: SingleChildScrollView(child: Text(notes, style: Retro.body(13, weight: FontWeight.w500))),
+              child: SingleChildScrollView(child: Text(notes, style: Pro.body(13, weight: FontWeight.w500))),
             ),
           ],
           if (downloading || u.state == 'ready') ...[
             const SizedBox(height: 14),
             Container(
               height: 22,
-              decoration: Retro.box(color: Retro.panel, radius: 4, border: 3, shadow: 2),
+              decoration: Pro.box(color: Pro.card, radius: 4, border: 3, shadow: 2),
               child: LayoutBuilder(
                 builder: (_, c) => Align(
                   alignment: Alignment.centerLeft,
-                  child: Container(width: c.maxWidth * (u.state == 'ready' ? 1 : u.fraction), color: Retro.teal),
+                  child: Container(width: c.maxWidth * (u.state == 'ready' ? 1 : u.fraction), color: Pro.accent),
                 ),
               ),
             ),
@@ -87,27 +87,27 @@ class _UpdateDialog extends StatelessWidget {
           const SizedBox(height: 16),
           Row(children: [
             if (u.available && !downloading && u.state != 'ready')
-              RetroButton(
+              ProButton(
                 autofocus: true,
-                color: Retro.teal,
+                color: Pro.accent,
                 onPressed: u.download,
-                child: const Row(children: [Icon(Icons.system_update_alt), SizedBox(width: 6), Text('ACTUALIZAR')]),
+                child: const Row(children: [Icon(Icons.system_update_alt), SizedBox(width: 6), Text('Actualizar')]),
               ),
             if (u.state == 'ready')
-              RetroButton(
+              ProButton(
                 autofocus: true,
-                color: Retro.teal,
+                color: Pro.accent,
                 onPressed: u.install,
-                child: const Text('INSTALAR'),
+                child: const Text('Instalar'),
               ),
             if (!u.available)
-              RetroButton(
+              ProButton(
                 autofocus: true,
-                color: Retro.teal,
+                color: Pro.accent,
                 onPressed: u.check,
                 child: const Text('BUSCAR OTRA VEZ'),
               ),
-            RetroButton(
+            ProButton(
               onPressed: () => Navigator.of(context).pop(),
               child: Text(downloading ? 'SEGUIR EN SEGUNDO PLANO' : 'MÁS TARDE'),
             ),

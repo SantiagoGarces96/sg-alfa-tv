@@ -1,5 +1,5 @@
 /*
- * SG Alfa Home — panel de ajustes (lateral, estilo cómic).
+ * SG Alfa Home — panel de ajustes (lateral, estilo profesional).
  * Copyright (c) 2026 SG Alfa.
  */
 
@@ -18,6 +18,7 @@ import 'update_dialog.dart';
 import '../core/update_model.dart';
 import 'automations_screen.dart';
 import 'home_widgets.dart';
+import 'pro.dart';
 import 'retro.dart';
 
 Future<void> showSettingsPanel(BuildContext context, {String? page}) => showGeneralDialog(
@@ -68,9 +69,9 @@ class _PanelState extends State<_Panel> {
         height: double.infinity,
         margin: const EdgeInsets.fromLTRB(0, 0, 0, 0),
         decoration: BoxDecoration(
-          color: Retro.night,
-          border: Border(right: BorderSide(color: Retro.ink, width: 5)),
-          boxShadow: [BoxShadow(color: Retro.ink, offset: Offset(8, 0))],
+          color: Pro.bg,
+          border: Border(right: BorderSide(color: Pro.line, width: 1)),
+          boxShadow: const [BoxShadow(color: Color(0x66000000), blurRadius: 30)],
         ),
         child: Material(
           type: MaterialType.transparency,
@@ -104,7 +105,7 @@ Route _route(Widget page) => PageRouteBuilder(
       transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: a, child: child),
     );
 
-/// Página del panel: título retro + lista de opciones.
+/// Página del panel: título sobrio + lista de opciones.
 class _Page extends StatelessWidget {
   final String title;
   final List<Widget> children;
@@ -115,14 +116,17 @@ class _Page extends StatelessWidget {
   Widget build(BuildContext context) => ListView(
         padding: const EdgeInsets.fromLTRB(28, 34, 34, 40),
         children: [
-          Text(title, style: Retro.title(30)),
+          Text(_titleCase(title), style: Pro.title(30)),
           const SizedBox(height: 22),
           ...children,
         ],
       );
 }
 
-/// Fila de opción: chapita con icono, título, subtítulo y lo que haga falta a la derecha.
+/// «AJUSTES» → «Ajustes» (los títulos de página no van en mayúsculas).
+String _titleCase(String t) => t.isEmpty ? t : t[0].toUpperCase() + t.substring(1).toLowerCase();
+
+/// Fila de opción: icono en cuadrito de color, título, subtítulo gris y lo que haga falta a la derecha.
 class _Row extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -143,25 +147,27 @@ class _Row extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 10),
-        child: RetroButton(
+        child: ProButton(
           autofocus: autofocus,
-          color: Retro.panel,
-          focusColor: Retro.red,
+          color: Pro.card,
           onPressed: onTap,
+          radius: 14,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(children: [
             Container(
-              width: 40,
-              height: 40,
-              decoration: Retro.box(color: Retro.mustard, radius: 10, border: 2.5, shadow: 2),
-              child: Icon(icon, size: 22, color: Retro.ink),
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(color: Pro.accent, borderRadius: BorderRadius.circular(9)),
+              child: Icon(icon, size: 20, color: Colors.white),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title, style: Retro.body(18, weight: FontWeight.w800)),
-                if (subtitle != null)
-                  Text(subtitle!, style: Retro.body(14, color: Retro.cream.withValues(alpha: 0.85), weight: FontWeight.w500)),
+                Text(title, style: Pro.body(17, weight: FontWeight.w600)),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(subtitle!, style: Pro.body(14, color: Pro.sub)),
+                ],
               ]),
             ),
             if (trailing != null) ...[const SizedBox(width: 10), trailing!],
@@ -170,37 +176,14 @@ class _Row extends StatelessWidget {
       );
 }
 
-/// Interruptor retro (cápsula con contorno de tinta).
+/// Interruptor de los ajustes (estilo móvil).
 class RetroSwitch extends StatelessWidget {
   final bool value;
 
   const RetroSwitch(this.value, {super.key});
 
   @override
-  Widget build(BuildContext context) => AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        width: 58,
-        height: 32,
-        padding: const EdgeInsets.all(3),
-        decoration: BoxDecoration(
-          color: value ? Retro.positive : Retro.muted,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Retro.ink, width: 2.5),
-        ),
-        child: AnimatedAlign(
-          duration: const Duration(milliseconds: 160),
-          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-          child: Container(
-            width: 20,
-            height: 20,
-            decoration: BoxDecoration(
-              color: Retro.cream,
-              shape: BoxShape.circle,
-              border: Border.all(color: Retro.ink, width: 2),
-            ),
-          ),
-        ),
-      );
+  Widget build(BuildContext context) => ProSwitch(value);
 }
 
 // ---------------------------------------------------------------- páginas
@@ -217,14 +200,14 @@ class _MainPage extends StatelessWidget {
         icon: Icons.shield,
         title: 'Protección SG Alfa',
         subtitle: today.adblock ? 'Bloqueo de anuncios activo' : 'Anuncios, pop-ups y automatizaciones',
-        trailing: Icon(Icons.chevron_right, color: Retro.cream),
+        trailing: Icon(Icons.chevron_right, color: Pro.sub),
         onTap: () => Navigator.of(context).push(_route(const _ProtectionPage())),
       ),
       _Row(
         icon: Icons.wallpaper,
         title: 'Fondo de pantalla',
         subtitle: _wallpaperName(context.watch<ThemeModel>()),
-        trailing: Icon(Icons.chevron_right, color: Retro.cream),
+        trailing: Icon(Icons.chevron_right, color: Pro.sub),
         onTap: () => Navigator.of(context).push(_route(const _WallpaperPage())),
       ),
       _Row(
@@ -233,14 +216,14 @@ class _MainPage extends StatelessWidget {
         subtitle: context.watch<ThemeModel>().auto
             ? 'Automático (día / noche)'
             : 'Ahora: ${context.watch<ThemeModel>().current.name}',
-        trailing: Icon(Icons.chevron_right, color: Retro.cream),
+        trailing: Icon(Icons.chevron_right, color: Pro.sub),
         onTap: () => Navigator.of(context).push(_route(const _ThemesPage())),
       ),
       _Row(
         icon: Icons.visibility_off,
         title: 'Apps ocultas',
         subtitle: '${context.watch<AppsModel>().hiddenApps.length} ocultas',
-        trailing: Icon(Icons.chevron_right, color: Retro.cream),
+        trailing: Icon(Icons.chevron_right, color: Pro.sub),
         onTap: () => Navigator.of(context).push(_route(const _HiddenPage())),
       ),
       _Row(
@@ -305,7 +288,7 @@ class _ProtectionPageState extends State<_ProtectionPage> {
         icon: Icons.edit_note,
         title: 'Crear y editar automatizaciones',
         subtitle: 'CUANDO / SOLO SI / ENTONCES',
-        trailing: Icon(Icons.chevron_right, color: Retro.cream),
+        trailing: Icon(Icons.chevron_right, color: Pro.sub),
         onTap: () async {
           await SgAutomationsScreen.open(context);
           if (context.mounted) context.read<TodayModel>().refresh();
@@ -359,7 +342,7 @@ class _ProtectionPageState extends State<_ProtectionPage> {
       const SizedBox(height: 10),
       Text(
         'Si usas otra VPN (AdGuard, Blokada…), apágala antes: solo puede haber una a la vez.',
-        style: Retro.body(14, color: Retro.cream.withValues(alpha: 0.85), weight: FontWeight.w500),
+        style: Pro.body(14, color: Pro.text.withValues(alpha: 0.85), weight: FontWeight.w500),
       ),
     ]);
   }
@@ -375,7 +358,7 @@ class _HiddenPage extends StatelessWidget {
     return _Page(title: 'OCULTAS', children: [
       if (hidden.isEmpty)
         Text('No hay apps ocultas. Para ocultar una: mantén OK sobre ella → Ocultar.',
-            style: Retro.body(16, weight: FontWeight.w500)),
+            style: Pro.body(16, weight: FontWeight.w500)),
       for (var i = 0; i < hidden.length; i++)
         _Row(
           autofocus: i == 0,
@@ -398,15 +381,15 @@ class _AboutPage extends StatelessWidget {
             width: 90,
             height: 90,
             padding: const EdgeInsets.all(6),
-            decoration: Retro.box(color: Retro.cream, radius: 18, shadow: 5),
+            decoration: Pro.box(color: Pro.text, radius: 18, shadow: 5),
             child: Image.asset('assets/helmet.png'),
           ),
           const SizedBox(width: 18),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('SG ALFA HOME', style: Retro.title(28)),
+              Text('SG Alfa Home', style: Pro.title(28)),
               const SizedBox(height: 8),
-              RetroSticker('VERSIÓN ${context.watch<UpdateModel>().current}', color: Retro.mustard),
+              ProTag('VERSIÓN ${context.watch<UpdateModel>().current}', color: Pro.accent),
             ]),
           ),
         ]),
@@ -414,10 +397,10 @@ class _AboutPage extends StatelessWidget {
         Text(
           'Tu pantalla de inicio retro con bloqueo de anuncios, cierre de pop-ups, '
           'automatizaciones y sugerencias según tus hábitos.',
-          style: Retro.body(17, weight: FontWeight.w600),
+          style: Pro.body(17, weight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
-        Text('github.com/SantiagoGarces96', style: Retro.body(15, color: Retro.mustard)),
+        Text('github.com/SantiagoGarces96', style: Pro.body(15, color: Pro.accent)),
         const SizedBox(height: 20),
         _Row(
           autofocus: true,
@@ -506,10 +489,10 @@ class _ThemesPage extends StatelessWidget {
       final selected = !m.auto && m.selectedId == t.id;
       return Padding(
         padding: const EdgeInsets.only(bottom: 10),
-        child: RetroButton(
+        child: ProButton(
           autofocus: autofocus,
-          color: selected ? Retro.mustard : Retro.panel,
-          focusColor: Retro.red,
+          color: selected ? Pro.accent : Pro.card,
+          focusColor: Pro.accent,
           padding: const EdgeInsets.all(8),
           onPressed: () => m.select(t.id),
           child: Row(children: [
@@ -540,27 +523,27 @@ class _ThemesPage extends StatelessWidget {
       Container(
         margin: const EdgeInsets.only(bottom: 14),
         padding: const EdgeInsets.all(12),
-        decoration: Retro.box(color: Retro.teal, radius: 12, shadow: 4),
+        decoration: Pro.box(color: Pro.accent, radius: 12, shadow: 4),
         child: Row(children: [
           const AlfiSprite(size: 44),
           const SizedBox(width: 10),
           Expanded(
             child: Text('Sugerencia: «${suggested.name}». ${SgThemes.suggestionReason(now)}.',
-                style: TextStyle(color: Retro.on(Retro.teal), fontWeight: FontWeight.w800, fontSize: 14)),
+                style: TextStyle(color: Pro.on(Pro.accent), fontWeight: FontWeight.w800, fontSize: 14)),
           ),
         ]),
       ),
       for (var i = 0; i < SgThemes.presets.length; i++) themeRow(SgThemes.presets[i], autofocus: i == 0),
       if (m.custom.isNotEmpty) ...[
         const SizedBox(height: 6),
-        Text('MIS TEMAS', style: Retro.title(16)),
+        Text('MIS TEMAS', style: Pro.title(16)),
         const SizedBox(height: 10),
         for (final t in m.custom)
           Row(children: [
             Expanded(child: themeRow(t)),
             Padding(
               padding: const EdgeInsets.only(bottom: 10, left: 4),
-              child: RetroButton(
+              child: ProButton(
                 padding: const EdgeInsets.all(10),
                 onPressed: () => Navigator.of(context).push(_route(_ThemeEditor(base: t))),
                 child: const Icon(Icons.edit),
@@ -573,7 +556,7 @@ class _ThemesPage extends StatelessWidget {
         icon: Icons.add_circle,
         title: 'Crear mi tema',
         subtitle: 'Parte del tema actual y cámbialo todo',
-        trailing: Icon(Icons.chevron_right, color: Retro.cream),
+        trailing: Icon(Icons.chevron_right, color: Pro.sub),
         onTap: () => Navigator.of(context).push(_route(_ThemeEditor(
           base: m.current.copyWith(
             id: 'mio-${DateTime.now().millisecondsSinceEpoch}',
@@ -583,7 +566,7 @@ class _ThemesPage extends StatelessWidget {
         ))),
       ),
       const SizedBox(height: 6),
-      Text('AUTOMÁTICO', style: Retro.title(16)),
+      Text('AUTOMÁTICO', style: Pro.title(16)),
       const SizedBox(height: 10),
       _Row(
         icon: Icons.brightness_6,
@@ -654,9 +637,9 @@ class _ThemeEditorState extends State<_ThemeEditor> {
         child: Container(
           width: 430,
           padding: const EdgeInsets.all(16),
-          decoration: Retro.box(color: Retro.night, shadow: 6),
+          decoration: Pro.box(color: Pro.bg, shadow: 6),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label.toUpperCase(), style: Retro.title(18)),
+            Text(label.toUpperCase(), style: Pro.title(18)),
             const SizedBox(height: 12),
             Wrap(spacing: 6, runSpacing: 6, children: [
               for (final c in SgThemes.palette)
@@ -683,17 +666,17 @@ class _ThemeEditorState extends State<_ThemeEditor> {
         child: Container(
           width: 480,
           padding: const EdgeInsets.all(16),
-          decoration: Retro.box(color: Retro.cream, shadow: 6),
+          decoration: Pro.box(color: Pro.text, shadow: 6),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             TextField(
               controller: c,
               autofocus: true,
               onSubmitted: (v) => Navigator.of(ctx).pop(v),
-              style: TextStyle(color: Retro.on(Retro.cream), fontSize: 20, fontWeight: FontWeight.w700),
+              style: TextStyle(color: Pro.on(Pro.text), fontSize: 20, fontWeight: FontWeight.w700),
               decoration: const InputDecoration(labelText: 'Nombre del tema'),
             ),
             const SizedBox(height: 10),
-            RetroButton(color: Retro.teal, onPressed: () => Navigator.of(ctx).pop(c.text), child: const Text('LISTO')),
+            ProButton(color: Pro.accent, onPressed: () => Navigator.of(ctx).pop(c.text), child: const Text('Listo')),
           ]),
         ),
       ),
@@ -709,7 +692,7 @@ class _ThemeEditorState extends State<_ThemeEditor> {
         trailing: Container(
           width: 46,
           height: 28,
-          decoration: BoxDecoration(color: c, border: Border.all(color: Retro.ink, width: 2.5), borderRadius: BorderRadius.circular(6)),
+          decoration: BoxDecoration(color: c, border: Border.all(color: Pro.line, width: 1), borderRadius: BorderRadius.circular(6)),
         ),
         onTap: () => _pickColor(label, c, set),
       );
@@ -718,8 +701,8 @@ class _ThemeEditorState extends State<_ThemeEditor> {
       Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: Row(children: [
-          Expanded(child: Text(label, style: Retro.body(16, weight: FontWeight.w800))),
-          RetroButton(
+          Expanded(child: Text(label, style: Pro.body(16, weight: FontWeight.w800))),
+          ProButton(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
             onPressed: value > min ? () => set((value - step).clamp(min, max)) : null,
             child: const Text('−', style: TextStyle(fontSize: 20)),
@@ -727,9 +710,9 @@ class _ThemeEditorState extends State<_ThemeEditor> {
           SizedBox(
             width: 56,
             child: Text(value.toStringAsFixed(value % 1 == 0 ? 0 : 1),
-                textAlign: TextAlign.center, style: Retro.title(18)),
+                textAlign: TextAlign.center, style: Pro.title(18)),
           ),
-          RetroButton(
+          ProButton(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
             onPressed: value < max ? () => set((value + step).clamp(min, max)) : null,
             child: const Text('+', style: TextStyle(fontSize: 20)),
@@ -741,7 +724,7 @@ class _ThemeEditorState extends State<_ThemeEditor> {
         icon: icon,
         title: title,
         subtitle: value,
-        trailing: Icon(Icons.sync, color: Retro.cream),
+        trailing: Icon(Icons.sync, color: Pro.text),
         onTap: next,
       );
 
@@ -761,11 +744,11 @@ class _ThemeEditorState extends State<_ThemeEditor> {
     const weights = {'ligera': 'Fina', 'normal': 'Normal', 'gruesa': 'Gruesa'};
     return _Page(title: 'MI TEMA', children: [
       Text('Los cambios se ven al momento en toda la pantalla.',
-          style: Retro.body(14, color: Retro.cream.withValues(alpha: 0.85), weight: FontWeight.w500)),
+          style: Pro.body(14, color: Pro.text.withValues(alpha: 0.85), weight: FontWeight.w500)),
       const SizedBox(height: 12),
       _Row(icon: Icons.badge, title: 'Nombre', subtitle: t.name, onTap: _rename, autofocus: true),
       const SizedBox(height: 6),
-      Text('COLORES', style: Retro.title(16)),
+      Text('COLORES', style: Pro.title(16)),
       const SizedBox(height: 10),
       _colorRow('Fondo de paneles', t.night, (c) => _set(t.copyWith(night: c))),
       _colorRow('Tarjetas', t.panel, (c) => _set(t.copyWith(panel: c))),
@@ -775,7 +758,7 @@ class _ThemeEditorState extends State<_ThemeEditor> {
       _colorRow('Color extra', t.tertiary, (c) => _set(t.copyWith(tertiary: c))),
       _colorRow('Contorno y sombras', t.ink, (c) => _set(t.copyWith(ink: c))),
       const SizedBox(height: 6),
-      Text('FORMA', style: Retro.title(16)),
+      Text('FORMA', style: Pro.title(16)),
       const SizedBox(height: 10),
       _stepper('Contorno', t.border, 0.5, 0, 6, (v) => _set(t.copyWith(border: v))),
       _stepper('Sombra', t.shadow, 1, 0, 10, (v) => _set(t.copyWith(shadow: v))),
@@ -787,7 +770,7 @@ class _ThemeEditorState extends State<_ThemeEditor> {
       _Row(icon: Icons.title, title: 'Títulos en MAYÚSCULAS', trailing: RetroSwitch(t.caps),
           onTap: () => _set(t.copyWith(caps: !t.caps))),
       const SizedBox(height: 6),
-      Text(Retro.caption('Estilo'), style: Retro.title(16)),
+      Text('ESTILO', style: Pro.title(16)),
       const SizedBox(height: 10),
       _option(Icons.center_focus_strong, 'Al enfocar una app', focuses[t.focus] ?? 'Cómic con contorno',
           () => _set(t.copyWith(focus: _cycle(focuses.keys.toList(), t.focus)))),
@@ -803,13 +786,13 @@ class _ThemeEditorState extends State<_ThemeEditor> {
       _Row(icon: Icons.short_text, title: 'Nombre bajo la app enfocada', subtitle: 'Como en Apple TV',
           trailing: RetroSwitch(t.focusName), onTap: () => _set(t.copyWith(focusName: !t.focusName))),
       const SizedBox(height: 6),
-      Text('INICIO', style: Retro.title(16)),
+      Text('INICIO', style: Pro.title(16)),
       const SizedBox(height: 10),
       _Row(
         icon: Icons.wallpaper,
         title: 'Fondo de pantalla',
         subtitle: t.wallpaper.startsWith('file:') ? 'Una foto tuya' : (SgThemes.wallpapers[t.wallpaper] ?? t.wallpaper),
-        trailing: Icon(Icons.chevron_right, color: Retro.cream),
+        trailing: Icon(Icons.chevron_right, color: Pro.sub),
         onTap: () {
           // Para ver el fondo del tema hay que quitar el fondo general, si había uno.
           if (_model.wallpaperOverride.isNotEmpty) _model.setWallpaperOverride('');
@@ -833,25 +816,25 @@ class _ThemeEditorState extends State<_ThemeEditor> {
           trailing: RetroSwitch(t.mascot), onTap: () => _set(t.copyWith(mascot: !t.mascot))),
       const SizedBox(height: 10),
       Row(children: [
-        RetroButton(
-          color: Retro.teal,
+        ProButton(
+          color: Pro.accent,
           onPressed: () async {
             _saved = true;
             await _model.saveCustom(_t);
             if (context.mounted) Navigator.of(context).pop();
           },
-          child: const Row(children: [Icon(Icons.save), SizedBox(width: 6), Text('GUARDAR')]),
+          child: const Row(children: [Icon(Icons.save), SizedBox(width: 6), Text('Guardar')]),
         ),
-        RetroButton(onPressed: () => Navigator.of(context).pop(), child: const Text('CANCELAR')),
+        ProButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
         if (widget.base.custom && context.read<ThemeModel>().custom.any((c) => c.id == widget.base.id))
-          RetroButton(
-            color: Retro.muted,
+          ProButton(
+            color: Pro.sub,
             onPressed: () async {
               _saved = true;
               await _model.deleteCustom(widget.base.id);
               if (context.mounted) Navigator.of(context).pop();
             },
-            child: const Text('BORRAR'),
+            child: const Text('Borrar'),
           ),
       ]),
     ]);
@@ -887,11 +870,11 @@ class _SwatchState extends State<_Swatch> {
             color: widget.color,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: _f ? Retro.mustard : (widget.selected ? Retro.cream : Retro.ink),
+              color: _f ? Pro.accent : (widget.selected ? Pro.text : Pro.text),
               width: _f ? 5 : 2.5,
             ),
           ),
-          child: widget.selected ? Icon(Icons.check, color: Retro.on(widget.color)) : null,
+          child: widget.selected ? Icon(Icons.check, color: Pro.on(widget.color)) : null,
         ),
       );
 }
@@ -970,9 +953,9 @@ class _WallpaperPageState extends State<_WallpaperPage> {
       final selected = current == id;
       return Padding(
         padding: const EdgeInsets.only(bottom: 10),
-        child: RetroButton(
-          color: selected ? Retro.mustard : Retro.panel,
-          focusColor: Retro.red,
+        child: ProButton(
+          color: selected ? Pro.accent : Pro.card,
+          focusColor: Pro.accent,
           padding: const EdgeInsets.all(8),
           onPressed: () => _choose(m, id),
           child: Row(children: [
@@ -980,7 +963,7 @@ class _WallpaperPageState extends State<_WallpaperPage> {
               width: 128,
               height: 72,
               clipBehavior: Clip.hardEdge,
-              decoration: BoxDecoration(border: Border.all(color: Retro.ink, width: 2.5), color: m.current.night),
+              decoration: BoxDecoration(border: Border.all(color: Pro.line, width: 1), color: m.current.night),
               child: preview(id),
             ),
             const SizedBox(width: 12),
@@ -996,7 +979,7 @@ class _WallpaperPageState extends State<_WallpaperPage> {
         _forTheme
             ? 'Este fondo será parte de tu tema. Se ve al momento.'
             : 'Este fondo se usa con TODOS los temas. Elige «El del tema» para que cada tema use el suyo.',
-        style: Retro.body(14, color: Retro.cream.withValues(alpha: 0.85), weight: FontWeight.w500),
+        style: Pro.body(14, color: Pro.text.withValues(alpha: 0.85), weight: FontWeight.w500),
       ),
       const SizedBox(height: 12),
       _Row(
@@ -1004,7 +987,7 @@ class _WallpaperPageState extends State<_WallpaperPage> {
         icon: Icons.photo_library,
         title: 'Mis imágenes',
         subtitle: fileNow ? 'Ahora mismo: una foto tuya' : 'Fotos guardadas en el deco o en un USB',
-        trailing: Icon(Icons.chevron_right, color: Retro.cream),
+        trailing: Icon(Icons.chevron_right, color: Pro.sub),
         onTap: () => Navigator.of(context).push(_route(_GalleryPage(onPicked: (id) => _choose(m, id)))),
       ),
       const SizedBox(height: 6),
@@ -1080,11 +1063,11 @@ class _GalleryPageState extends State<_GalleryPage> with WidgetsBindingObserver 
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return _Page(title: 'MIS IMÁGENES', children: [Text('Buscando fotos…', style: Retro.body(16))]);
+    if (_loading) return _Page(title: 'MIS IMÁGENES', children: [Text('Buscando fotos…', style: Pro.body(16))]);
     if (_allowed != true) {
       return _Page(title: 'MIS IMÁGENES', children: [
         Text('Para ver tus fotos, Android pide permiso una vez. Pulsa el botón y acepta en el aviso.',
-            style: Retro.body(15)),
+            style: Pro.body(15)),
         const SizedBox(height: 12),
         _Row(
           autofocus: true,
@@ -1099,7 +1082,7 @@ class _GalleryPageState extends State<_GalleryPage> with WidgetsBindingObserver 
         Text(
           'No encontré fotos. Descarga alguna (con Downloader o el gestor de archivos) o conecta un USB, '
           'y vuelve aquí.',
-          style: Retro.body(15),
+          style: Pro.body(15),
         ),
       Wrap(spacing: 10, runSpacing: 10, children: [
         for (var i = 0; i < _images.length; i++)
@@ -1155,18 +1138,18 @@ class _ThumbState extends State<_Thumb> {
           width: 140,
           height: 79,
           decoration: BoxDecoration(
-            color: Retro.panel,
-            border: Border.all(color: _f ? Retro.mustard : Retro.ink, width: _f ? 4 : 2.5),
+            color: Pro.card,
+            border: Border.all(color: _f ? Pro.accent : Pro.text, width: _f ? 4 : 2.5),
           ),
           child: Stack(fit: StackFit.expand, children: [
             FutureBuilder<Uint8List?>(
               future: _img,
               builder: (_, s) => s.data == null
-                  ? Center(child: Text(widget.name, maxLines: 2, style: Retro.body(10)))
+                  ? Center(child: Text(widget.name, maxLines: 2, style: Pro.body(10)))
                   : Image.memory(s.data!, fit: BoxFit.cover, gaplessPlayback: true),
             ),
             if (widget.usb)
-              Positioned(right: 2, top: 2, child: RetroSticker('USB', color: Retro.teal)),
+              Positioned(right: 2, top: 2, child: ProTag('USB', color: Pro.accent)),
             if (widget.busy) const Center(child: CircularProgressIndicator()),
           ]),
         ),
