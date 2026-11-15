@@ -4,6 +4,7 @@
  */
 
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -348,13 +349,17 @@ class AppBackdrop extends StatelessWidget {
                   future: apps.image(pkg),
                   builder: (_, s) => s.data == null
                       ? const SizedBox.expand()
-                      : Image.memory(s.data!,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          height: double.infinity,
-                          cacheWidth: 40,
-                          filterQuality: FilterQuality.medium,
-                          gaplessPlayback: true),
+                      : ImageFiltered(
+                          // Difuminado de verdad (no pixelado), como el fondo de Apple TV.
+                          imageFilter: ImageFilter.blur(sigmaX: 28, sigmaY: 28, tileMode: TileMode.clamp),
+                          child: Image.memory(s.data!,
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: double.infinity,
+                              cacheWidth: 200,
+                              filterQuality: FilterQuality.low,
+                              gaplessPlayback: true),
+                        ),
                 ),
         ),
         const DecoratedBox(
