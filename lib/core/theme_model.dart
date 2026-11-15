@@ -57,6 +57,17 @@ class SgTheme {
   final bool today;
   final bool mascot; // Alfi, la mascota 8-bit
 
+  // Estilo (temas minimalistas)
+  final String focus; // comic | escala (Apple TV) | borde (Android) | brillo
+  final bool caps; // títulos en MAYÚSCULAS
+  final double veil; // 0..1: cuánto se oscurece el fondo para leer el texto
+  final String weight; // ligera | normal | gruesa (letra Moderna)
+  final bool greeting; // «Buenas tardes» sobre la hora
+  final bool brand; // logo SG ALFA arriba a la izquierda
+  final bool hint; // nombre de la app enfocada y «OK para abrir»
+  final String spacing; // compacto | normal | amplio
+  final bool focusName; // nombre solo bajo la app enfocada (como Apple TV)
+
   const SgTheme({
     required this.id,
     required this.name,
@@ -79,7 +90,19 @@ class SgTheme {
     this.names = false,
     this.today = true,
     this.mascot = true,
+    this.focus = 'comic',
+    this.caps = true,
+    this.veil = 1,
+    this.weight = 'gruesa',
+    this.greeting = true,
+    this.brand = true,
+    this.hint = true,
+    this.spacing = 'normal',
+    this.focusName = false,
   });
+
+  /// Sin contornos ni pegatinas: estilo limpio.
+  bool get clean => focus != 'comic';
 
   SgTheme copyWith({
     String? id,
@@ -103,6 +126,15 @@ class SgTheme {
     bool? names,
     bool? today,
     bool? mascot,
+    String? focus,
+    bool? caps,
+    double? veil,
+    String? weight,
+    bool? greeting,
+    bool? brand,
+    bool? hint,
+    String? spacing,
+    bool? focusName,
   }) =>
       SgTheme(
         id: id ?? this.id,
@@ -126,6 +158,15 @@ class SgTheme {
         names: names ?? this.names,
         today: today ?? this.today,
         mascot: mascot ?? this.mascot,
+        focus: focus ?? this.focus,
+        caps: caps ?? this.caps,
+        veil: veil ?? this.veil,
+        weight: weight ?? this.weight,
+        greeting: greeting ?? this.greeting,
+        brand: brand ?? this.brand,
+        hint: hint ?? this.hint,
+        spacing: spacing ?? this.spacing,
+        focusName: focusName ?? this.focusName,
       );
 
   Map<String, dynamic> toJson() => {
@@ -149,6 +190,15 @@ class SgTheme {
         'names': names,
         'today': today,
         'mascot': mascot,
+        'focus': focus,
+        'caps': caps,
+        'veil': veil,
+        'weight': weight,
+        'greeting': greeting,
+        'brand': brand,
+        'hint': hint,
+        'spacing': spacing,
+        'focusName': focusName,
       };
 
   static SgTheme fromJson(Map<String, dynamic> j) {
@@ -177,6 +227,15 @@ class SgTheme {
       names: j['names'] == true,
       today: j['today'] != false,
       mascot: j['mascot'] != false,
+      focus: '${j['focus'] ?? base.focus}',
+      caps: j['caps'] != false,
+      veil: n('veil', base.veil),
+      weight: '${j['weight'] ?? base.weight}',
+      greeting: j['greeting'] != false,
+      brand: j['brand'] != false,
+      hint: j['hint'] != false,
+      spacing: '${j['spacing'] ?? base.spacing}',
+      focusName: j['focusName'] == true,
     );
   }
 }
@@ -251,6 +310,171 @@ class SgThemes {
     clock: 'mediano',
     tileSize: 'l',
     mascot: false,
+    focus: 'escala',
+    caps: false,
+    weight: 'normal',
+    greeting: false,
+    hint: false,
+    focusName: true,
+    spacing: 'amplio',
+    veil: 0.6,
+  );
+
+  // ---------------------------------------------- minimalistas
+
+  /// Predeterminado: sobrio, sin adornos.
+  static const esencial = SgTheme(
+    id: 'esencial',
+    name: 'Esencial',
+    ink: Color(0xFF000000),
+    night: Color(0xFF121214),
+    panel: Color(0xFF1F1F23),
+    cream: Color(0xFFEDEDED),
+    primary: Color(0xFF3D7BFF),
+    secondary: Color(0xFFFFFFFF),
+    tertiary: Color(0xFF8E8E93),
+    border: 0,
+    shadow: 0,
+    radius: 12,
+    font: SgFonts.system,
+    wallpaper: 'solido',
+    dock: 'fila',
+    clock: 'mediano',
+    today: false,
+    mascot: false,
+    focus: 'escala',
+    caps: false,
+    veil: 0.3,
+    weight: 'ligera',
+    greeting: false,
+    brand: false,
+    hint: false,
+    spacing: 'amplio',
+    focusName: true,
+  );
+
+  /// Inspirado en Apple TV: tarjetas grandes que «saltan» al enfocarlas, sombra suave, letra fina.
+  static const appleTv = SgTheme(
+    id: 'appletv',
+    name: 'Estilo Apple TV',
+    ink: Color(0xFF000000),
+    night: Color(0xFF0B0B10),
+    panel: Color(0xFF1C1C22),
+    cream: Color(0xFFFFFFFF),
+    primary: Color(0xFF2C2C3A),
+    secondary: Color(0xFFFFFFFF),
+    tertiary: Color(0xFF8E8E93),
+    border: 0,
+    shadow: 0,
+    radius: 18,
+    font: SgFonts.system,
+    wallpaper: 'tema',
+    dock: 'cristal',
+    clock: 'pequeno',
+    tileSize: 'l',
+    today: false,
+    mascot: false,
+    focus: 'escala',
+    caps: false,
+    veil: 0.4,
+    weight: 'ligera',
+    greeting: false,
+    brand: false,
+    hint: false,
+    spacing: 'amplio',
+    focusName: true,
+  );
+
+  /// Android / Google TV minimalista: gris oscuro, aro blanco al enfocar, nombres siempre visibles.
+  static const androidMin = SgTheme(
+    id: 'androidmin',
+    name: 'Android minimalista',
+    ink: Color(0xFF000000),
+    night: Color(0xFF202124),
+    panel: Color(0xFF303134),
+    cream: Color(0xFFE8EAED),
+    primary: Color(0xFF8AB4F8),
+    secondary: Color(0xFFFFFFFF),
+    tertiary: Color(0xFF81C995),
+    border: 0,
+    shadow: 0,
+    radius: 10,
+    font: SgFonts.system,
+    wallpaper: 'solido',
+    dock: 'fila',
+    clock: 'mediano',
+    names: true,
+    today: false,
+    mascot: false,
+    focus: 'borde',
+    caps: false,
+    veil: 0.2,
+    weight: 'normal',
+    greeting: false,
+    brand: false,
+    hint: false,
+  );
+
+  /// Claro: fondo blanco roto y texto oscuro.
+  static const claro = SgTheme(
+    id: 'claro',
+    name: 'Claro',
+    ink: Color(0xFF8E8E93),
+    night: Color(0xFFF2F2F7),
+    panel: Color(0xFFFFFFFF),
+    cream: Color(0xFF1C1C1E),
+    primary: Color(0xFF007AFF),
+    secondary: Color(0xFF007AFF),
+    tertiary: Color(0xFF8E8E93),
+    border: 0,
+    shadow: 0,
+    radius: 14,
+    font: SgFonts.system,
+    wallpaper: 'solido',
+    dock: 'fila',
+    clock: 'mediano',
+    today: false,
+    mascot: false,
+    focus: 'escala',
+    caps: false,
+    veil: 0,
+    weight: 'normal',
+    greeting: false,
+    brand: false,
+    hint: false,
+    spacing: 'amplio',
+    focusName: true,
+  );
+
+  /// Negro puro (ideal para pantallas OLED): nada más que las apps.
+  static const negro = SgTheme(
+    id: 'negro',
+    name: 'Negro puro',
+    ink: Color(0xFF000000),
+    night: Color(0xFF000000),
+    panel: Color(0xFF141414),
+    cream: Color(0xFFF5F5F5),
+    primary: Color(0xFF3A3A3C),
+    secondary: Color(0xFFFFFFFF),
+    tertiary: Color(0xFF636366),
+    border: 0,
+    shadow: 0,
+    radius: 8,
+    font: SgFonts.system,
+    wallpaper: 'solido',
+    dock: 'fila',
+    clock: 'pequeno',
+    today: false,
+    mascot: false,
+    focus: 'borde',
+    caps: false,
+    veil: 0,
+    weight: 'ligera',
+    greeting: false,
+    brand: false,
+    hint: false,
+    spacing: 'normal',
+    focusName: true,
   );
 
   static const pastel = SgTheme(
@@ -288,7 +512,7 @@ class SgThemes {
     mascot: true,
   );
 
-  static const presets = [retro, hacker, gamer, formal, pastel, pixel];
+  static const presets = [esencial, appleTv, androidMin, claro, negro, formal, retro, hacker, gamer, pastel, pixel];
 
   /// Tema sugerido según la hora del día.
   static SgTheme suggestedFor(DateTime t) {
@@ -318,10 +542,13 @@ class SgThemes {
     'matrix': 'Código verde',
     'pixel': 'Paisaje 8-bit',
     'tema': 'Degradado del tema',
+    'solido': 'Color liso',
   };
 
   static String? wallpaperAsset(String id) =>
-      id == 'tema' || id.startsWith('file:') || !wallpapers.containsKey(id) ? null : 'assets/wallpapers/$id.jpg';
+      id == 'tema' || id == 'solido' || id.startsWith('file:') || !wallpapers.containsKey(id)
+          ? null
+          : 'assets/wallpapers/$id.jpg';
 
   /// Paleta de colores para el editor (retro, neón, pastel y neutros).
   static const palette = [
@@ -336,8 +563,8 @@ class SgThemes {
 }
 
 class ThemeModel extends ChangeNotifier {
-  SgTheme _current = SgThemes.retro;
-  String _selectedId = SgThemes.retro.id;
+  SgTheme _current = SgThemes.esencial;
+  String _selectedId = SgThemes.esencial.id;
   List<SgTheme> _custom = [];
   bool _auto = false;
   String _dayId = SgThemes.retro.id;
@@ -369,7 +596,7 @@ class ThemeModel extends ChangeNotifier {
   String get dayId => _dayId;
   String get nightId => _nightId;
 
-  SgTheme byId(String id) => all.firstWhere((t) => t.id == id, orElse: () => SgThemes.retro);
+  SgTheme byId(String id) => all.firstWhere((t) => t.id == id, orElse: () => SgThemes.esencial);
 
   Future<void> load() async {
     final p = await SharedPreferences.getInstance();
@@ -447,7 +674,7 @@ class ThemeModel extends ChangeNotifier {
   Future<void> deleteCustom(String id) async {
     _custom.removeWhere((c) => c.id == id);
     await _persist();
-    if (_selectedId == id) await select(SgThemes.retro.id);
+    if (_selectedId == id) await select(SgThemes.esencial.id);
   }
 
   Future<void> _persist() async {

@@ -749,8 +749,16 @@ class _ThemeEditorState extends State<_ThemeEditor> {
   Widget build(BuildContext context) {
     final t = _t;
     const sizes = {'s': 'Pequeñas (7 por fila)', 'm': 'Medianas (6 por fila)', 'l': 'Grandes (5 por fila)'};
-    const docks = {'crema': 'Crema', 'oscuro': 'Oscuro', 'cristal': 'Cristal', 'oculto': 'Sin dock'};
-    const clocks = {'grande': 'Grande', 'mediano': 'Mediano', 'oculto': 'Oculto'};
+    const docks = {'fila': 'Sin fondo', 'crema': 'Crema', 'oscuro': 'Oscuro', 'cristal': 'Cristal', 'oculto': 'Sin dock'};
+    const clocks = {'grande': 'Grande', 'mediano': 'Mediano', 'pequeno': 'Pequeño', 'oculto': 'Oculto'};
+    const focuses = {
+      'escala': 'Crece con sombra (Apple TV)',
+      'borde': 'Aro de color (Android)',
+      'brillo': 'Brillo de color',
+      'comic': 'Cómic con contorno',
+    };
+    const spacings = {'compacto': 'Compacto', 'normal': 'Normal', 'amplio': 'Amplio'};
+    const weights = {'ligera': 'Fina', 'normal': 'Normal', 'gruesa': 'Gruesa'};
     return _Page(title: 'MI TEMA', children: [
       Text('Los cambios se ven al momento en toda la pantalla.',
           style: Retro.body(14, color: Retro.cream.withValues(alpha: 0.85), weight: FontWeight.w500)),
@@ -774,6 +782,26 @@ class _ThemeEditorState extends State<_ThemeEditor> {
       _stepper('Esquinas', t.radius, 2, 0, 24, (v) => _set(t.copyWith(radius: v))),
       _option(Icons.text_fields, 'Letra de títulos', SgFonts.label(t.font),
           () => _set(t.copyWith(font: _cycle(SgFonts.all, t.font)))),
+      _option(Icons.format_bold, 'Grosor de la letra', weights[t.weight] ?? 'Gruesa',
+          () => _set(t.copyWith(weight: _cycle(weights.keys.toList(), t.weight)))),
+      _Row(icon: Icons.title, title: 'Títulos en MAYÚSCULAS', trailing: RetroSwitch(t.caps),
+          onTap: () => _set(t.copyWith(caps: !t.caps))),
+      const SizedBox(height: 6),
+      Text(Retro.caption('Estilo'), style: Retro.title(16)),
+      const SizedBox(height: 10),
+      _option(Icons.center_focus_strong, 'Al enfocar una app', focuses[t.focus] ?? 'Cómic con contorno',
+          () => _set(t.copyWith(focus: _cycle(focuses.keys.toList(), t.focus)))),
+      _option(Icons.space_bar, 'Espacio entre apps', spacings[t.spacing] ?? 'Normal',
+          () => _set(t.copyWith(spacing: _cycle(spacings.keys.toList(), t.spacing)))),
+      _stepper('Oscurecer el fondo', t.veil * 10, 1, 0, 10, (v) => _set(t.copyWith(veil: v / 10))),
+      _Row(icon: Icons.waving_hand, title: 'Saludo sobre la hora', trailing: RetroSwitch(t.greeting),
+          onTap: () => _set(t.copyWith(greeting: !t.greeting))),
+      _Row(icon: Icons.shield_moon, title: 'Logo SG Alfa arriba', trailing: RetroSwitch(t.brand),
+          onTap: () => _set(t.copyWith(brand: !t.brand))),
+      _Row(icon: Icons.help_outline, title: 'Ayuda al enfocar', subtitle: 'Nombre grande y «OK para abrir»',
+          trailing: RetroSwitch(t.hint), onTap: () => _set(t.copyWith(hint: !t.hint))),
+      _Row(icon: Icons.short_text, title: 'Nombre bajo la app enfocada', subtitle: 'Como en Apple TV',
+          trailing: RetroSwitch(t.focusName), onTap: () => _set(t.copyWith(focusName: !t.focusName))),
       const SizedBox(height: 6),
       Text('INICIO', style: Retro.title(16)),
       const SizedBox(height: 10),
@@ -793,9 +821,9 @@ class _ThemeEditorState extends State<_ThemeEditor> {
       ),
       _option(Icons.grid_view, 'Tamaño de las apps', sizes[t.tileSize]!,
           () => _set(t.copyWith(tileSize: _cycle(sizes.keys.toList(), t.tileSize)))),
-      _option(Icons.dock, 'Dock de favoritas', docks[t.dock]!,
+      _option(Icons.dock, 'Dock de favoritas', docks[t.dock] ?? 'Crema',
           () => _set(t.copyWith(dock: _cycle(docks.keys.toList(), t.dock)))),
-      _option(Icons.schedule, 'Reloj', clocks[t.clock]!,
+      _option(Icons.schedule, 'Reloj', clocks[t.clock] ?? 'Grande',
           () => _set(t.copyWith(clock: _cycle(clocks.keys.toList(), t.clock)))),
       _Row(icon: Icons.subtitles, title: 'Nombres bajo las apps', trailing: RetroSwitch(t.names),
           onTap: () => _set(t.copyWith(names: !t.names))),

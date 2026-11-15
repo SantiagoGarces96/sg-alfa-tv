@@ -88,20 +88,25 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           // Velo inferior para que el texto y las apps se lean sobre cualquier fondo.
-          const Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0x55000000), Color(0x00000000), Color(0x99000000)],
-                    stops: [0, 0.35, 1],
+          if (theme.veil > 0)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.33 * theme.veil),
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.6 * theme.veil),
+                      ],
+                      stops: const [0, 0.35, 1],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
           Column(children: [
             SizedBox(
               height: _topBar,
@@ -119,7 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         SliverToBoxAdapter(child: SizedBox(height: heroHeight, child: const HomeHero())),
                         if (theme.dock != 'oculto') SliverToBoxAdapter(child: _dock(favorites, theme)),
                         if (others.isNotEmpty || theme.dock == 'oculto') ...[
-                          const SliverToBoxAdapter(child: SectionTitle('TODAS LAS APPS')),
+                          const SliverToBoxAdapter(child: SectionTitle('Todas las apps')),
                           SliverToBoxAdapter(
                             child: _grid(theme.dock == 'oculto' ? [...favorites, ...others] : others, theme,
                                 favorites.isEmpty || theme.dock == 'oculto')),
@@ -141,7 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Widget _tile(TvApp app, {bool first = false, bool inDock = false, required bool showNames}) {
+  Widget _tile(TvApp app, {bool first = false, bool inDock = false, required bool showNames, bool nameSpace = false}) {
     final apps = context.read<AppsModel>();
     return AppTile(
       app: app,
@@ -149,6 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
       focusNode: first ? Nav.dock : null,
       onFocusScroll: inDock ? _scrollTop : null,
       showName: showNames,
+      nameSpace: nameSpace,
       onOpen: () => apps.launch(app),
       onOptions: () => showAppOptions(context, app),
     );
@@ -158,7 +164,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   static double _dockTile(SgTheme t) => switch (t.tileSize) { 's' => 112, 'l' => 150, _ => 130 };
 
+  static double _gap(SgTheme t) => switch (t.spacing) { 'compacto' => 14, 'amplio' => 30, _ => 21 };
+
   Widget _wallpaper(SgTheme t, String id, Size size) {
+    if (id == 'solido') {
+      return ColoredBox(key: ValueKey('solid-${t.id}'), color: t.night, child: SizedBox(width: size.width, height: size.height));
+    }
     if (id.startsWith('file:')) {
       final f = File(id.substring(5));
       if (f.existsSync()) {
@@ -192,6 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Container(
         height: _dockHeight - 16,
         decoration: switch (theme.dock) {
+          'fila' => null,
           'oscuro' => Retro.box(color: Retro.night.withValues(alpha: 0.85), radius: 22, border: 4, shadow: 7),
           'cristal' => Retro.box(color: Colors.white.withValues(alpha: 0.10), radius: 22, border: 2, shadow: 0,
               borderColor: Retro.cream.withValues(alpha: 0.35)),
@@ -212,7 +224,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
                   for (var i = 0; i < favorites.length; i++)
                     Padding(
-                      padding: const EdgeInsets.only(right: 21),
+                      padding: EdgeInsets.only(right: _gap(theme)),
                       child: SizedBox(
                         width: _dockTile(theme),
                         height: _dockTile(theme) * 9 / 16 + 1,
@@ -231,15 +243,17 @@ class _HomeScreenState extends State<HomeScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: LayoutBuilder(builder: (context, c) {
-        const gap = 21.0;
+        final gap = _gap(theme);
         final cols = _columns(theme);
         final w = (c.maxWidth - gap * (cols - 1)) / cols;
         return Wrap(
           spacing: gap,
-          runSpacing: showNames ? 22 : gap,
+          runSpacing: showNames || theme.focusName ? gap + 4 : gap,
           children: [
             for (var i = 0; i < apps.length; i++)
-              SizedBox(width: w, child: _tile(apps[i], first: focusFirst && i == 0, showNames: showNames)),
+              SizedBox(
+                  width: w,
+                  child: _tile(apps[i], first: focusFirst && i == 0, showNames: showNames, nameSpace: true)),
           ],
         );
       }),

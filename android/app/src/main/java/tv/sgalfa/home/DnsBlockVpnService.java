@@ -375,6 +375,20 @@ public class DnsBlockVpnService extends VpnService {
         return host.isEmpty() ? null : host;
     }
 
+    /** Partes de un dominio que delatan publicidad o rastreo (p. ej. «ads.loquesea.com»). */
+    private static final Set<String> AD_LABELS = new HashSet<>(java.util.Arrays.asList(
+            "ads", "adserver", "adservers", "adservice", "adservices", "adsrv", "adtech", "advert", "adverts",
+            "advertising", "adnetwork", "adnxs", "pagead", "pagead2", "popads", "popunder", "adclick", "adclicks",
+            "adtrack", "adtracking", "tracking", "tracker", "trackers", "telemetry", "analytics", "adsdk",
+            "admob", "adimg", "adimages", "adlog", "adlogs", "adstats", "adevent", "adevents"));
+    private static final String[] AD_PREFIXES = {"ads-", "adserv", "adsrv", "adtrack", "track-", "tracking-", "analytics-"};
+    /** Servicios de video y de la propia tele: las reglas por patrón nunca los tocan. */
+    private static final String[] SAFE = {
+            "googlevideo.com", "youtube.com", "ytimg.com", "netflix.com", "nflxvideo.net", "nflximg.net",
+            "nflxso.net", "primevideo.com", "aiv-cdn.net", "disneyplus.com", "dssott.com", "bamgrid.com",
+            "max.com", "hbomax.com", "spotify.com", "scdn.co", "mp4upload.com", "uqload.com", "crunchyroll.com",
+            "android.com", "gstatic.com", "googleapis.com", "sgalfa", "github.com", "githubusercontent.com"};
+
     private boolean isBlocked(String host) {
         Set<String> list = blocklist;
         if (list.contains(host)) return true;
@@ -382,6 +396,21 @@ public class DnsBlockVpnService extends VpnService {
         while (dot >= 0 && dot + 1 < host.length()) {
             if (list.contains(host.substring(dot + 1))) return true;
             dot = host.indexOf('.', dot + 1);
+        }
+        return byPattern(host);
+    }
+
+    /** Modo estricto: bloquea dominios con pinta de anuncio aunque no estén en ninguna lista. */
+    static boolean byPattern(String host) {
+        for (String s : SAFE) {
+            if (host.equals(s) || host.endsWith("." + s) || host.contains(s)) return false;
+        }
+        String[] labels = host.split("\\.");
+        // La última parte (com, net…) y la anterior (el nombre del sitio) no cuentan: solo subdominios.
+        for (int i = 0; i < labels.length - 2; i++) {
+            String l = labels[i];
+            if (AD_LABELS.contains(l)) return true;
+            for (String p : AD_PREFIXES) if (l.startsWith(p)) return true;
         }
         return false;
     }

@@ -86,21 +86,25 @@ class TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final today = context.watch<TodayModel>();
+    final theme = context.watch<ThemeModel>().current;
     return Nav.arrows(
       down: Nav.belowTopBar,
       child: Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 24, 0),
       child: Row(children: [
-        Container(
-          width: 38,
-          height: 38,
-          padding: const EdgeInsets.all(3),
-          decoration: Retro.box(color: Retro.cream, radius: 10, border: 2.5, shadow: 3),
-          child: Image.asset('assets/helmet.png'),
-        ),
-        const SizedBox(width: 10),
-        Text('SG ALFA', style: Retro.title(20)),
-        const SizedBox(width: 16),
+        if (theme.brand) ...[
+          Container(
+            width: 38,
+            height: 38,
+            padding: const EdgeInsets.all(3),
+            decoration: Retro.box(color: Retro.cream, radius: 10, border: 2.5, shadow: 3),
+            child: Image.asset('assets/helmet.png'),
+          ),
+          const SizedBox(width: 10),
+          Text('SG ALFA', style: Retro.title(20)),
+          const SizedBox(width: 16),
+        ] else
+          const SizedBox(width: 8),
         BarIcon(icon: Icons.settings_outlined, onPressed: onSettings, focusNode: Nav.settings),
         const SizedBox(width: 6),
         const _NetworkBadge(),
@@ -214,12 +218,16 @@ class _HomeHeroState extends State<HomeHero> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(mainAxisSize: MainAxisSize.min, children: [
-                  RetroSticker(_greeting(_now), color: Retro.mustard, textColor: Retro.ink),
-                  const SizedBox(width: 12),
-                  Text(date, style: Retro.body(18)),
+                  if (theme.greeting) ...[
+                    RetroSticker(_greeting(_now), color: Retro.mustard, textColor: Retro.ink),
+                    const SizedBox(width: 12),
+                  ],
+                  Text(date, style: Retro.body(18, color: theme.clean ? Retro.cream.withValues(alpha: 0.75) : null)),
                 ]),
                 const SizedBox(height: 10),
-                if (theme.clock != 'oculto') Text(time, style: Retro.title(theme.clock == 'mediano' ? 56 : 84)),
+                if (theme.clock != 'oculto')
+                  Text(time,
+                      style: Retro.title(switch (theme.clock) { 'mediano' => 56, 'pequeno' => 38, _ => 84 })),
                 const SizedBox(height: 14),
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 180),
@@ -230,7 +238,7 @@ class _HomeHeroState extends State<HomeHero> {
                       child: child,
                     ),
                   ),
-                  child: focused == null
+                  child: focused == null || !theme.hint
                       ? const SizedBox(height: 46, key: ValueKey('none'))
                       : Row(key: ValueKey(focused), children: [
                           Container(
@@ -341,9 +349,11 @@ class SectionTitle extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.fromLTRB(24, 22, 24, 12),
         child: Row(children: [
-          Container(width: 5, height: 22, color: Retro.red),
-          const SizedBox(width: 10),
-          Text(text, style: Retro.title(18)),
+          if (!Retro.clean) ...[
+            Container(width: 5, height: 22, color: Retro.red),
+            const SizedBox(width: 10),
+          ],
+          Text(Retro.caption(text), style: Retro.title(Retro.clean ? 20 : 18)),
         ]),
       );
 }

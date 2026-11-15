@@ -31,6 +31,9 @@ class Retro {
   static double titleK = 1; // la letra pixel es más ancha: se reduce un poco
 
   static SgTheme theme = SgThemes.retro;
+  static bool clean = false; // estilo limpio: sin contornos de cómic ni pegatinas
+  static bool caps = true;
+  static FontWeight titleWeight = FontWeight.w900;
 
   static void apply(SgTheme t) {
     theme = t;
@@ -47,20 +50,32 @@ class Retro {
     display = t.font == SgFonts.system ? null : t.font;
     if (t.font == SgFonts.mono) display = 'monospace';
     titleK = t.font == SgFonts.pixel ? 0.72 : 1;
+    clean = t.clean;
+    caps = t.caps;
+    titleWeight = switch (t.weight) { 'ligera' => FontWeight.w300, 'normal' => FontWeight.w500, _ => FontWeight.w900 };
+  }
+
+  /// Texto de etiqueta según el tema: «TODAS LAS APPS» o «Todas las apps».
+  static String caption(String s) {
+    if (caps) return s.toUpperCase();
+    final l = s.toLowerCase();
+    return l.isEmpty ? l : l[0].toUpperCase() + l.substring(1);
   }
 
   /// Color de texto legible sobre un fondo dado.
-  static Color on(Color bg) => bg.computeLuminance() > 0.4 ? const Color(0xFF15120F) : cream;
+  static Color on(Color bg) => bg.computeLuminance() > 0.4
+      ? const Color(0xFF15120F)
+      : (cream.computeLuminance() > 0.4 ? cream : Colors.white);
 
   /// Texto de título: tipografía del tema con «borde» de tinta.
   static TextStyle title(double size, {Color? color}) => TextStyle(
         fontFamily: display,
-        fontWeight: display == null ? FontWeight.w900 : FontWeight.w400,
+        fontWeight: display == null ? titleWeight : FontWeight.w400,
         fontSize: size * titleK,
         color: color ?? cream,
         height: 1.0,
-        letterSpacing: display == SgFonts.pixel ? 0 : 1,
-        shadows: _inkOutline(size >= 40 ? 3 : 2),
+        letterSpacing: clean ? 0.2 : (display == SgFonts.pixel ? 0 : 1),
+        shadows: clean ? const [] : _inkOutline(size >= 40 ? 3 : 2),
       );
 
   /// Texto normal legible, con sombra dura para leerse sobre cualquier fondo.
@@ -186,6 +201,10 @@ class RetroSticker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (Retro.clean) {
+      return Text(Retro.caption(text),
+          style: Retro.body(15, color: Retro.cream.withValues(alpha: 0.7), weight: FontWeight.w600));
+    }
     final bg = color ?? Retro.red;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

@@ -18,6 +18,9 @@ class AppTile extends StatefulWidget {
   final TvApp app;
   final bool autofocus;
   final bool showName;
+
+  /// Hay sitio debajo para el nombre (cuadrícula): en temas tipo Apple TV sale al enfocar.
+  final bool nameSpace;
   final FocusNode? focusNode;
 
   /// Cómo desplazar la página al enfocar (por defecto, centrar la tarjeta).
@@ -32,6 +35,7 @@ class AppTile extends StatefulWidget {
     required this.onOptions,
     this.autofocus = false,
     this.showName = false,
+    this.nameSpace = false,
     this.focusNode,
     this.onFocusScroll,
   });
@@ -149,21 +153,49 @@ class _AppTileState extends State<AppTile> {
 
   @override
   Widget build(BuildContext context) {
-    final scale = _pressed ? 0.94 : (_focused ? 1.07 : 1.0);
-    final card = AnimatedScale(
-      scale: scale,
-      duration: const Duration(milliseconds: 160),
-      curve: Curves.easeOutCubic,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        decoration: BoxDecoration(
+    final style = Retro.theme.focus;
+    final grow = switch (style) { 'escala' => 1.12, 'borde' => 1.03, 'brillo' => 1.06, _ => 1.07 };
+    final scale = _pressed ? 0.94 : (_focused ? grow : 1.0);
+    final r = Retro.clean ? Retro.theme.radius.clamp(2.0, 28.0).toDouble() : 10.0;
+    final deco = switch (style) {
+      // Apple TV: la tarjeta crece y flota con una sombra suave.
+      'escala' => BoxDecoration(
+          color: Retro.panel,
+          borderRadius: BorderRadius.circular(r),
+          boxShadow: _focused
+              ? [BoxShadow(color: Colors.black.withValues(alpha: 0.55), blurRadius: 26, offset: const Offset(0, 12))]
+              : const [],
+        ),
+      // Android: aro del color de foco.
+      'borde' => BoxDecoration(
+          color: Retro.panel,
+          borderRadius: BorderRadius.circular(r),
+          border: Border.all(color: _focused ? Retro.mustard : Colors.transparent, width: 3),
+        ),
+      // Brillo del color de acento.
+      'brillo' => BoxDecoration(
+          color: Retro.panel,
+          borderRadius: BorderRadius.circular(r),
+          boxShadow: _focused
+              ? [BoxShadow(color: Retro.red.withValues(alpha: 0.75), blurRadius: 22, spreadRadius: 2)]
+              : const [],
+        ),
+      _ => BoxDecoration(
           color: Retro.night,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: _focused ? Retro.mustard : Retro.ink, width: _focused ? 3.5 : 2.5),
           boxShadow: [BoxShadow(color: Retro.ink, offset: _focused ? const Offset(5, 5) : const Offset(3, 3))],
         ),
+    };
+    final card = AnimatedScale(
+      scale: scale,
+      duration: Duration(milliseconds: style == 'escala' ? 200 : 160),
+      curve: Curves.easeOutCubic,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        decoration: deco,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(r),
           child: FutureBuilder<Uint8List?>(
             future: _image,
             builder: (context, snap) => _content(snap.data),
@@ -180,18 +212,21 @@ class _AppTileState extends State<AppTile> {
       child: GestureDetector(
         onTap: widget.onOpen,
         onLongPress: widget.onOptions,
-        child: !widget.showName
+        child: !(widget.showName || (widget.nameSpace && Retro.theme.focusName))
             ? AspectRatio(aspectRatio: 16 / 9, child: card)
             : Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             AspectRatio(aspectRatio: 16 / 9, child: card),
-            if (widget.showName)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
+            AnimatedOpacity(
+              opacity: widget.showName || _focused ? 1 : 0,
+              duration: const Duration(milliseconds: 160),
+              child: Padding(
+                padding: EdgeInsets.only(top: Retro.theme.focus == 'escala' ? 14 : 8),
                 child: Text(widget.app.label,
                     maxLines: 1, overflow: TextOverflow.ellipsis, style: Retro.body(15)),
               ),
+            ),
           ],
         ),
       ),
