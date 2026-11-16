@@ -16,6 +16,7 @@ import '../core/theme_model.dart';
 import 'mascot.dart';
 import 'update_dialog.dart';
 import '../core/update_model.dart';
+import '../core/widgets_model.dart';
 import 'automations_screen.dart';
 import 'home_widgets.dart';
 import 'pro.dart';
@@ -33,6 +34,7 @@ Future<void> showSettingsPanel(BuildContext context, {String? page}) => showGene
           ChangeNotifierProvider.value(value: context.read<DeviceModel>()),
           ChangeNotifierProvider.value(value: context.read<UpdateModel>()),
           ChangeNotifierProvider.value(value: context.read<TodayModel>()),
+          ChangeNotifierProvider.value(value: context.read<WidgetsModel>()),
         ],
         child: _Panel(initialPage: page),
       ),
@@ -232,7 +234,43 @@ class _MainPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final today = context.watch<TodayModel>();
+    final wd = context.watch<WidgetsModel>();
     return _Page(title: 'AJUSTES', children: [
+      _Row(
+        icon: Icons.wb_cloudy_outlined,
+        title: 'Ciudad del clima',
+        subtitle: wd.city.isEmpty ? 'Sin elegir' : wd.city,
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () async {
+          final c = TextEditingController(text: wd.city);
+          final r = await showDialog<String>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              backgroundColor: Pro.card,
+              title: Text('Ciudad del clima', style: Pro.title(24)),
+              content: TextField(
+                controller: c,
+                autofocus: true,
+                style: TextStyle(color: Pro.text, fontSize: 20),
+                decoration: const InputDecoration(hintText: 'Por ejemplo: Bogotá, Medellín, Cali…'),
+                onSubmitted: (v) => Navigator.of(ctx).pop(v),
+              ),
+              actions: [
+                ProButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancelar')),
+                ProButton(color: Pro.accent, onPressed: () => Navigator.of(ctx).pop(c.text), child: const Text('Guardar')),
+              ],
+            ),
+          );
+          if (r != null && r.trim().isNotEmpty) wd.setCity(r);
+        },
+      ),
+      _Row(
+        icon: Icons.music_note_outlined,
+        title: 'Mostrar lo que suena',
+        subtitle: wd.media['access'] == true ? 'Permitido' : 'Pide permiso a Android',
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => wd.openMediaAccess(),
+      ),
       _Row(
         autofocus: true,
         icon: Icons.shield,
@@ -773,6 +811,7 @@ class _ThemeEditorState extends State<_ThemeEditor> {
     const docks = {'fila': 'Sin fondo', 'crema': 'Crema', 'oscuro': 'Oscuro', 'cristal': 'Cristal', 'oculto': 'Sin dock'};
     const clocks = {'grande': 'Grande', 'mediano': 'Mediano', 'pequeno': 'Pequeño', 'oculto': 'Oculto'};
     const focuses = {
+      'aro': 'Borde blanco con brillo',
       'escala': 'Crece con sombra (Apple TV)',
       'borde': 'Aro de color (Android)',
       'brillo': 'Brillo de color',
@@ -812,9 +851,16 @@ class _ThemeEditorState extends State<_ThemeEditor> {
       const SizedBox(height: 10),
       _option(Icons.center_focus_strong, 'Al enfocar una app', focuses[t.focus] ?? 'Cómic con contorno',
           () => _set(t.copyWith(focus: _cycle(focuses.keys.toList(), t.focus)))),
-      _option(Icons.view_carousel, 'Disposición del inicio',
-          t.showcase ? 'Escaparate (imagen grande, como Apple TV)' : 'Clásica (hora grande y paneles)',
-          () => _set(t.copyWith(layout: t.showcase ? 'clasico' : 'escaparate'))),
+      _option(
+          Icons.view_carousel,
+          'Disposición del inicio',
+          switch (t.layout) {
+            'tablero' => 'Tablero (hora, clima, música y Continuar viendo)',
+            'escaparate' => 'Escaparate (imagen grande, como Apple TV)',
+            _ => 'Clásica (hora grande y paneles)',
+          },
+          () => _set(t.copyWith(
+              layout: switch (t.layout) { 'clasico' => 'tablero', 'tablero' => 'escaparate', _ => 'clasico' }))),
       _option(Icons.space_bar, 'Espacio entre apps', spacings[t.spacing] ?? 'Normal',
           () => _set(t.copyWith(spacing: _cycle(spacings.keys.toList(), t.spacing)))),
       _stepper('Oscurecer el fondo', t.veil * 10, 1, 0, 10, (v) => _set(t.copyWith(veil: v / 10))),

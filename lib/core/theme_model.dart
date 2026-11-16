@@ -104,6 +104,7 @@ class SgTheme {
   });
 
   bool get showcase => layout == 'escaparate';
+  bool get tablero => layout == 'tablero';
 
   /// Sin contornos ni pegatinas: estilo limpio.
   bool get clean => focus != 'comic';
@@ -330,7 +331,37 @@ class SgThemes {
 
   // ---------------------------------------------- minimalistas
 
-  /// Predeterminado: sobrio, sin adornos.
+  /// El definitivo: hora, clima, lo que suena, «Continuar viendo» con Alfi y franja de apps.
+  static const moderno = SgTheme(
+    id: 'moderno',
+    name: 'Moderno',
+    ink: Color(0xFF000000),
+    night: Color(0xFF0D1321),
+    panel: Color(0xFF1A2333),
+    cream: Color(0xFFFFFFFF),
+    primary: Color(0xFF4DD0C8),
+    secondary: Color(0xFFFFFFFF),
+    tertiary: Color(0xFF8E8E93),
+    border: 0,
+    shadow: 0,
+    radius: 14,
+    font: SgFonts.system,
+    wallpaper: 'pixel',
+    dock: 'cristal',
+    clock: 'oculto',
+    today: false,
+    mascot: true,
+    focus: 'aro',
+    caps: false,
+    veil: 0.55,
+    weight: 'normal',
+    greeting: false,
+    brand: false,
+    hint: false,
+    layout: 'tablero',
+  );
+
+  /// Predeterminado anterior: sobrio, sin adornos.
   static const esencial = SgTheme(
     id: 'esencial',
     name: 'Esencial',
@@ -521,7 +552,7 @@ class SgThemes {
     mascot: true,
   );
 
-  static const presets = [esencial, appleTv, androidMin, claro, negro, formal, retro, hacker, gamer, pastel, pixel];
+  static const presets = [moderno, esencial, appleTv, androidMin, claro, negro, formal, retro, hacker, gamer, pastel, pixel];
 
   /// Tema sugerido según la hora del día.
   static SgTheme suggestedFor(DateTime t) {
@@ -573,8 +604,8 @@ class SgThemes {
 }
 
 class ThemeModel extends ChangeNotifier {
-  SgTheme _current = SgThemes.esencial;
-  String _selectedId = SgThemes.esencial.id;
+  SgTheme _current = SgThemes.moderno;
+  String _selectedId = SgThemes.moderno.id;
   List<SgTheme> _custom = [];
   bool _auto = false;
   String _dayId = SgThemes.retro.id;
@@ -606,7 +637,7 @@ class ThemeModel extends ChangeNotifier {
   String get dayId => _dayId;
   String get nightId => _nightId;
 
-  SgTheme byId(String id) => all.firstWhere((t) => t.id == id, orElse: () => SgThemes.esencial);
+  SgTheme byId(String id) => all.firstWhere((t) => t.id == id, orElse: () => SgThemes.moderno);
 
   Future<void> load() async {
     final p = await SharedPreferences.getInstance();
@@ -684,7 +715,7 @@ class ThemeModel extends ChangeNotifier {
   Future<void> deleteCustom(String id) async {
     _custom.removeWhere((c) => c.id == id);
     await _persist();
-    if (_selectedId == id) await select(SgThemes.esencial.id);
+    if (_selectedId == id) await select(SgThemes.moderno.id);
   }
 
   Future<void> _persist() async {

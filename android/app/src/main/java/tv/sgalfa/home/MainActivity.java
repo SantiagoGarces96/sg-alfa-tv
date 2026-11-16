@@ -23,6 +23,7 @@ public class MainActivity extends FlutterActivity {
         launcher.register(engine.getDartExecutor().getBinaryMessenger());
         protection = new ProtectionChannel(this);
         protection.register(engine.getDartExecutor().getBinaryMessenger());
+        new WidgetsChannel(this).register(engine.getDartExecutor().getBinaryMessenger());
     }
 
     @Override

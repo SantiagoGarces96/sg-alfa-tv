@@ -74,6 +74,17 @@
             </intent-filter>
         </receiver>
 
+        <!-- Widget «Sonando ahora»: ver qué música o vídeo suena (no lee notificaciones). -->
+        <service
+            android:name=".MediaListener"
+            android:exported="true"
+            android:label="SG Alfa · Sonando ahora"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
         <!-- Bloqueo de anuncios por DNS (VPN local) -->
         <service
             android:name=".DnsBlockVpnService"

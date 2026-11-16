@@ -10,6 +10,7 @@ class Native {
 
   static const launcher = MethodChannel('tv.sgalfa.home/launcher');
   static const protection = MethodChannel('tv.sgalfa.home/protection');
+  static const widgets = MethodChannel('tv.sgalfa.home/widgets');
   static const appChanges = EventChannel('tv.sgalfa.home/app-changes');
 
   static Future<List<Map<String, dynamic>>> listApps() async {

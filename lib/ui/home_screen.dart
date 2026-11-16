@@ -16,6 +16,7 @@ import '../core/theme_model.dart';
 import 'app_options.dart';
 import 'app_tile.dart';
 import 'clean_prompt.dart';
+import 'dashboard.dart';
 import 'home_widgets.dart';
 import 'nav.dart';
 import 'retro.dart';
@@ -76,9 +77,15 @@ class _HomeScreenState extends State<HomeScreen> {
     final others = apps.others;
     // Escaparate (Apple TV): la imagen ocupa ~60 % de la pantalla y la franja de apps queda abajo,
     // con la fila siguiente asomando.
-    final heroHeight = theme.showcase
-        ? (size.height * 0.70 - _topBar).clamp(200.0, 2000.0)
-        : (size.height - _topBar - _dockHeight - 30).clamp(260.0, 2000.0);
+    // Tablero: medidas de una pantalla de 1600×900 (u = ancho / 1600); la franja empieza en y = 660.
+    final tab = theme.tablero;
+    final u = size.width / 1600;
+    final topH = tab ? 140 * u : _topBar;
+    final heroHeight = tab
+        ? 660 * u - topH
+        : theme.showcase
+            ? (size.height * 0.70 - _topBar).clamp(200.0, 2000.0)
+            : (size.height - _topBar - _dockHeight - 30).clamp(260.0, 2000.0);
 
     return PopScope(
       canPop: false,
@@ -113,11 +120,13 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           Column(children: [
             SizedBox(
-              height: _topBar,
-              child: TopBar(
-                onSettings: () => _openSettings(),
-                onProtection: () => _openSettings('protection'),
-              ),
+              height: topH,
+              child: tab
+                  ? DashTopBar(onSettings: () => _openSettings(), onProtection: () => _openSettings('protection'))
+                  : TopBar(
+                      onSettings: () => _openSettings(),
+                      onProtection: () => _openSettings('protection'),
+                    ),
             ),
             Expanded(
               child: !apps.loaded
@@ -128,10 +137,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         SliverToBoxAdapter(
                             child: SizedBox(
                                 height: heroHeight,
-                                child: theme.showcase ? const ShowcaseHero() : const HomeHero())),
+                                child: tab
+                                    ? ContinueHero(topBarHeight: topH)
+                                    : theme.showcase
+                                        ? const ShowcaseHero()
+                                        : const HomeHero())),
                         if (theme.dock != 'oculto') SliverToBoxAdapter(child: _dock(favorites, theme)),
                         if (others.isNotEmpty || theme.dock == 'oculto') ...[
-                          if (!theme.showcase)
+                          if (tab)
+                            SliverToBoxAdapter(child: SizedBox(height: 62 * u))
+                          else if (!theme.showcase)
                             const SliverToBoxAdapter(child: SectionTitle('Todas las apps'))
                           else
                             const SliverToBoxAdapter(child: SizedBox(height: 26)),
@@ -207,6 +222,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _dock(List<TvApp> favorites, SgTheme theme) {
+    if (theme.tablero) return _tabDock(favorites);
     return Nav.arrows(
       up: Nav.aboveDock,
       child: Padding(
@@ -255,8 +271,62 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _tabDock(List<TvApp> favorites) {
+    final u = MediaQuery.sizeOf(context).width / 1600;
+    return Nav.arrows(
+      up: Nav.aboveDock,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 95 * u),
+        child: Container(
+          height: 140 * u,
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.22),
+            borderRadius: BorderRadius.circular(40 * u),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.28), width: 1.5 * u),
+          ),
+          child: favorites.isEmpty
+              ? Center(
+                  child: Text('Mantén OK sobre una app para añadirla aquí',
+                      style: TextStyle(color: Colors.white, fontSize: 24 * u, fontWeight: FontWeight.w600)))
+              : SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  clipBehavior: Clip.none,
+                  padding: EdgeInsets.symmetric(horizontal: 31 * u),
+                  child: Row(children: [
+                    for (var i = 0; i < favorites.length; i++)
+                      Padding(
+                        padding: EdgeInsets.only(right: i == favorites.length - 1 ? 0 : 34.6 * u),
+                        child: SizedBox(
+                          width: 138 * u,
+                          height: 77.6 * u,
+                          child: _tile(favorites[i], first: i == 0, inDock: true, showNames: false),
+                        ),
+                      ),
+                  ]),
+                ),
+        ),
+      ),
+    );
+  }
+
   Widget _grid(List<TvApp> apps, SgTheme theme, bool focusFirst) {
     final showNames = theme.names;
+    if (theme.tablero) {
+      final u = MediaQuery.sizeOf(context).width / 1600;
+      return Padding(
+        padding: EdgeInsets.only(left: 126 * u, right: 126 * u),
+        child: Wrap(
+          spacing: 34.6 * u,
+          runSpacing: 34.6 * u,
+          children: [
+            for (var i = 0; i < apps.length; i++)
+              SizedBox(
+                  width: 138 * u,
+                  child: _tile(apps[i], first: focusFirst && i == 0, showNames: false)),
+          ],
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: LayoutBuilder(builder: (context, c) {

@@ -154,7 +154,7 @@ class _AppTileState extends State<AppTile> {
   @override
   Widget build(BuildContext context) {
     final style = Retro.theme.focus;
-    final grow = switch (style) { 'escala' => 1.12, 'borde' => 1.03, 'brillo' => 1.06, _ => 1.07 };
+    final grow = switch (style) { 'escala' => 1.12, 'aro' => 1.12, 'borde' => 1.03, 'brillo' => 1.06, _ => 1.07 };
     final scale = _pressed ? 0.94 : (_focused ? grow : 1.0);
     final r = Retro.clean ? Retro.theme.radius.clamp(2.0, 28.0).toDouble() : 10.0;
     final deco = switch (style) {
@@ -171,6 +171,15 @@ class _AppTileState extends State<AppTile> {
           color: Retro.panel,
           borderRadius: BorderRadius.circular(r),
           border: Border.all(color: _focused ? Retro.mustard : Colors.transparent, width: 3),
+        ),
+      // Tablero: borde blanco con brillo suave.
+      'aro' => BoxDecoration(
+          color: Retro.panel,
+          borderRadius: BorderRadius.circular(r),
+          border: Border.all(color: _focused ? Colors.white : Colors.transparent, width: 3),
+          boxShadow: _focused
+              ? [BoxShadow(color: Colors.white.withValues(alpha: 0.35), blurRadius: 14, spreadRadius: 1)]
+              : const [],
         ),
       // Brillo del color de acento.
       'brillo' => BoxDecoration(
