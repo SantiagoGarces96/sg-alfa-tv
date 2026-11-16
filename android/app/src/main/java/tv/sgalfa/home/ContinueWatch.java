@@ -1,7 +1,7 @@
 /*
- * SG Alfa Home — «Continuar viendo»: mientras algo se reproduce dentro de una app, guarda una imagen
- * del momento y el título que se ve en pantalla (o el que da la propia app), para mostrarlo en el inicio.
- * Todo se queda en el deco; nada sale a internet.
+ * SG Alfa Home — «Continuar viendo»: lo que se ve dentro de las apps (Anime Cast, WiwyXuper,
+ * XuperHydra…). Una tarjeta por cada serie o película, con el nombre (p. ej. «Magical★Explorer
+ * - Episodio 8»), una imagen del momento y el progreso si la app lo da. Todo se queda en el deco.
  * Copyright (c) 2026 SG Alfa.
  */
 package tv.sgalfa.home;
@@ -33,39 +33,106 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 final class ContinueWatch {
     private static final String PREFS = "sgalfa_continue";
-    private static final String KEY = "items";
-    private static final int MAX = 8;
-    private static final long EVERY_MS = 60_000;
+    private static final String KEY = "items2";
+    private static final int MAX = 12;
+    private static final long SHOT_EVERY_MS = 60_000;
+    private static final long REMEMBER_MS = 20 * 60_000; // un título visto hace poco vale para lo que se reproduzca
 
     private static final Map<String, Long> lastShot = new HashMap<>();
+    /** Último buen título visto en cada app (aunque no hubiera nada sonando). */
+    private static final Map<String, String> lastTitle = new HashMap<>();
+    private static final Map<String, Long> lastTitleAt = new HashMap<>();
     private static final Executor worker = Executors.newSingleThreadExecutor();
-    private static final Pattern TIME = Pattern.compile("^[-\\d:\\s/]+$");
+
+    private static final Pattern TIME = Pattern.compile("^[-\\d:\\s/.]+$");
     private static final Pattern EPISODE = Pattern.compile(
             "(episodio|cap[ií]tulo|\\bep\\.?\\s*\\d|temporada|season|episode|\\bt\\d+\\s*e\\d+)", Pattern.CASE_INSENSITIVE);
+    /** «Nombre - Episodio 8», «Nombre · Cap. 3», «Nombre T1 E4»: nombre de la serie + episodio. */
+    private static final Pattern NAMED = Pattern.compile(
+            "^(.{2,60}?)\\s*[-–—·:|]\\s*((episodio|cap[ií]tulo|ep\\.?|temporada|season|episode|t\\d+).*)$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern NOISE = Pattern.compile(
+            "(pulsa|presiona|mant[eé]n|cargando|espere|proveedor|comentario|recomi[eé]ndanos|instagram|whatsapp|"
+                    + "anuncio|publicidad|siguiente|anterior|reproducir|pausa|ajustes|configuraci|buscar|men[uú]|salir)",
+            Pattern.CASE_INSENSITIVE);
 
     private ContinueWatch() {
     }
 
-    /** Lo llama el servicio de automatizaciones al leer la pantalla de una app. */
+    // ------------------------------------------------------------ títulos
+
+    /** 3 = nombre + episodio; 2 = texto que habla de episodio; 0 = no sirve. */
+    private static int score(String s) {
+        if (s == null) return 0;
+        if (NAMED.matcher(s).matches()) return 3;
+        if (EPISODE.matcher(s).find()) return 2;
+        return 0;
+    }
+
+    /** El mejor título de la pantalla: el que trae nombre de serie y episodio. */
+    static String titleFromScreen(List<AccessibilityNodeInfo> nodes) {
+        String best = null;
+        int bestScore = 0;
+        for (AccessibilityNodeInfo n : nodes) {
+            CharSequence t = n.getText();
+            if (t == null) continue;
+            String s = t.toString().trim().replaceAll("\\s+", " ");
+            if (s.length() < 3 || s.length() > 90 || TIME.matcher(s).matches() || NOISE.matcher(s).find()) continue;
+            if (n.isEditable()) continue;
+            int sc = score(s);
+            if (sc > bestScore) {
+                best = s;
+                bestScore = sc;
+                if (sc == 3) break;
+            }
+        }
+        return best;
+    }
+
+    /** Nombre de la serie (para que cada anime tenga su propia tarjeta). */
+    static String series(String title) {
+        if (title == null || title.isEmpty()) return "";
+        Matcher m = NAMED.matcher(title);
+        if (m.matches()) return m.group(1).trim();
+        String s = title.replaceAll("(?i)\\s*[-–—·:|]?\\s*(episodio|cap[ií]tulo|ep\\.?|episode)\\s*\\d+.*$", "").trim();
+        return s.isEmpty() ? title : s;
+    }
+
+    // ------------------------------------------------------------ entrada desde el servicio
+
+    /** Lo llama el servicio de automatizaciones cada vez que lee la pantalla de una app. */
     static void onScreen(AccessibilityService svc, String pkg, List<AccessibilityNodeInfo> nodes) {
         if (pkg == null) return;
-        AudioManager am = (AudioManager) svc.getSystemService(Context.AUDIO_SERVICE);
-        if (am == null || !am.isMusicActive()) return; // solo si se está reproduciendo algo
         long now = SystemClock.uptimeMillis();
-        Long last = lastShot.get(pkg);
-        if (last != null && now - last < EVERY_MS) {
-            // Entre imagen e imagen: si ahora se ve el título del capítulo, guardarlo ya.
-            String t = titleFromScreen(nodes);
-            if (t != null && EPISODE.matcher(t).find()) worker.execute(() -> updateTitle(svc, pkg, t));
-            return;
+
+        // 1) Recordar el mejor título que se vea, haya sonido o no (el nombre suele salir con el vídeo en pausa).
+        String seen = titleFromScreen(nodes);
+        if (seen != null) {
+            String prev = lastTitle.get(pkg);
+            Long prevAt = lastTitleAt.get(pkg);
+            boolean fresh = prevAt == null || now - prevAt > REMEMBER_MS;
+            if (fresh || score(seen) >= score(prev)) {
+                lastTitle.put(pkg, seen);
+                lastTitleAt.put(pkg, now);
+            }
+            // Si ya hay tarjeta de esta app y este título es mejor, se corrige al momento.
+            if (score(seen) == 3) {
+                final String t = seen;
+                worker.execute(() -> improveTitle(svc, pkg, t));
+            }
         }
+
+        // 2) Solo con algo reproduciéndose: imagen del momento (como mucho una por minuto y app).
+        AudioManager am = (AudioManager) svc.getSystemService(Context.AUDIO_SERVICE);
+        if (am == null || !am.isMusicActive()) return;
+        Long last = lastShot.get(pkg);
+        if (last != null && now - last < SHOT_EVERY_MS) return;
         lastShot.put(pkg, now);
 
-        // Título: el que da la app (si deja verlo) o el que se lee en pantalla.
         String title = null, sub = null;
         long pos = -1, dur = -1;
         MediaController c = session(svc, pkg);
@@ -75,13 +142,14 @@ final class ContinueWatch {
                 title = md.getString(MediaMetadata.METADATA_KEY_TITLE);
                 if (title == null) title = md.getString(MediaMetadata.METADATA_KEY_DISPLAY_TITLE);
                 sub = md.getString(MediaMetadata.METADATA_KEY_ARTIST);
-                if (sub == null) sub = md.getString(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE);
                 dur = md.getLong(MediaMetadata.METADATA_KEY_DURATION);
             }
             PlaybackState st = c.getPlaybackState();
             if (st != null) pos = st.getPosition();
         }
-        if (title == null || title.trim().isEmpty()) title = titleFromScreen(nodes);
+        Long tAt = lastTitleAt.get(pkg);
+        String remembered = tAt != null && now - tAt < REMEMBER_MS ? lastTitle.get(pkg) : null;
+        if (score(remembered) > score(title)) title = remembered;
         final String fTitle = title, fSub = sub;
         final long fPos = pos, fDur = dur;
 
@@ -122,27 +190,12 @@ final class ContinueWatch {
                 if (pkg.equals(mc.getPackageName())) return mc;
             }
         } catch (Exception ignored) {
-            // sin permiso de «Mostrar lo que suena»: se usa lo que se lee en pantalla
         }
         return null;
     }
 
-    /** El texto que más parece un título: mejor si habla de episodio o capítulo. */
-    static String titleFromScreen(List<AccessibilityNodeInfo> nodes) {
-        String first = null;
-        for (AccessibilityNodeInfo n : nodes) {
-            CharSequence t = n.getText();
-            if (t == null) continue;
-            String s = t.toString().trim().replaceAll("\\s+", " ");
-            if (s.length() < 3 || s.length() > 90 || TIME.matcher(s).matches()) continue;
-            if (n.isClickable() || n.isEditable()) continue;
-            if (EPISODE.matcher(s).find()) return s;
-            if (first == null && Character.isLetter(s.charAt(0))) first = s;
-        }
-        return first;
-    }
+    // ------------------------------------------------------------ guardar
 
-    /** ¿Imagen casi negra? (apps con contenido protegido): no sirve como portada. */
     private static boolean black(Bitmap b) {
         long sum = 0;
         int n = 0;
@@ -156,70 +209,124 @@ final class ContinueWatch {
         return n == 0 || sum / (n * 3) < 10;
     }
 
-    private static synchronized void save(Context c, String pkg, String title, String sub, long pos, long dur, Bitmap frame) {
+    private static String keyOf(String pkg, String title) {
+        return pkg + "|" + series(title).toLowerCase(Locale.ROOT);
+    }
+
+    private static JSONArray load(Context c) {
         try {
             SharedPreferences p = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-            JSONArray old = new JSONArray(p.getString(KEY, "[]"));
+            if (!p.contains(KEY) && p.contains("items")) {
+                // Versión anterior (una tarjeta por app): se conservan, con su clave nueva.
+                JSONArray old = new JSONArray(p.getString("items", "[]"));
+                for (int i = 0; i < old.length(); i++) {
+                    JSONObject o = old.getJSONObject(i);
+                    o.put("key", keyOf(o.optString("pkg"), o.optString("title", "")));
+                }
+                p.edit().putString(KEY, old.toString()).remove("items").apply();
+                return old;
+            }
+            return new JSONArray(p.getString(KEY, "[]"));
+        } catch (Exception e) {
+            return new JSONArray();
+        }
+    }
+
+    private static void store(Context c, JSONArray a) {
+        c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, a.toString()).apply();
+    }
+
+    private static synchronized void save(Context c, String pkg, String title, String sub, long pos, long dur, Bitmap frame) {
+        try {
+            JSONArray old = load(c);
+            String key = keyOf(pkg, title);
             JSONObject prev = null;
-            JSONArray out = new JSONArray();
             for (int i = 0; i < old.length(); i++) {
                 JSONObject o = old.getJSONObject(i);
-                if (pkg.equals(o.optString("pkg"))) prev = o;
+                if (key.equals(o.optString("key"))) prev = o;
+            }
+            // Sin título nuevo: seguir con la última tarjeta de esa app (mismo anime que se estaba viendo).
+            if (title == null) {
+                for (int i = 0; i < old.length(); i++) {
+                    JSONObject o = old.getJSONObject(i);
+                    if (pkg.equals(o.optString("pkg"))) {
+                        prev = o;
+                        key = o.optString("key");
+                        title = o.optString("title", "");
+                        break;
+                    }
+                }
             }
             JSONObject item = new JSONObject();
+            item.put("key", key);
             item.put("pkg", pkg);
-            // No perder un buen título por uno peor (p. ej. cuando el reproductor oculta los textos).
-            String keep = prev != null ? prev.optString("title", null) : null;
-            item.put("title", title != null ? title : (keep != null ? keep : ""));
+            item.put("title", title != null ? title : "");
             item.put("sub", sub != null ? sub : "");
             item.put("pos", pos);
             item.put("dur", dur);
             item.put("time", System.currentTimeMillis());
             File dir = new File(c.getFilesDir(), "continue");
             if (!dir.exists()) dir.mkdirs();
-            File img = new File(dir, pkg + ".jpg");
+            File img = new File(dir, Integer.toHexString(key.hashCode()) + ".jpg");
             if (frame != null && !black(frame)) {
                 try (FileOutputStream f = new FileOutputStream(img)) {
                     frame.compress(Bitmap.CompressFormat.JPEG, 82, f);
                 }
             }
-            item.put("image", img.exists() ? img.getAbsolutePath() : "");
+            String path = img.exists() ? img.getAbsolutePath() : (prev != null ? prev.optString("image", "") : "");
+            item.put("image", path);
+            JSONArray out = new JSONArray();
             out.put(item);
             for (int i = 0; i < old.length() && out.length() < MAX; i++) {
                 JSONObject o = old.getJSONObject(i);
-                if (!pkg.equals(o.optString("pkg"))) out.put(o);
+                if (!key.equals(o.optString("key"))) out.put(o);
             }
-            p.edit().putString(KEY, out.toString()).apply();
+            store(c, out);
         } catch (Exception ignored) {
         }
     }
 
-    /** Solo el título (sin imagen nueva), si es distinto del guardado. */
-    private static synchronized void updateTitle(Context c, String pkg, String title) {
+    /**
+     * Llega un título con nombre de serie: si la tarjeta más reciente de esa app no tenía nombre
+     * (o era de esa misma serie con otro episodio), se le pone este.
+     */
+    private static synchronized void improveTitle(Context c, String pkg, String title) {
         try {
-            SharedPreferences p = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-            JSONArray a = new JSONArray(p.getString(KEY, "[]"));
+            JSONArray a = load(c);
+            String key = keyOf(pkg, title);
             for (int i = 0; i < a.length(); i++) {
                 JSONObject o = a.getJSONObject(i);
-                if (pkg.equals(o.optString("pkg")) && !title.equals(o.optString("title"))) {
+                if (!pkg.equals(o.optString("pkg"))) continue;
+                boolean sameSeries = key.equals(o.optString("key"));
+                boolean unnamed = score(o.optString("title", "")) < 3;
+                long age = System.currentTimeMillis() - o.optLong("time", 0);
+                if ((sameSeries || (unnamed && age < REMEMBER_MS)) && !title.equals(o.optString("title"))) {
                     o.put("title", title);
-                    p.edit().putString(KEY, a.toString()).apply();
-                    return;
+                    o.put("key", key);
+                    // Si ya había otra tarjeta de esa serie, se queda solo esta.
+                    JSONArray out = new JSONArray();
+                    for (int j = 0; j < a.length(); j++) {
+                        JSONObject x = a.getJSONObject(j);
+                        if (j == i || !key.equals(x.optString("key"))) out.put(x);
+                    }
+                    store(c, out);
                 }
+                return; // solo la más reciente de esa app
             }
         } catch (Exception ignored) {
         }
     }
 
-    /** Para el inicio: lo último visto primero. */
+    // ------------------------------------------------------------ para el inicio
+
     static List<Map<String, Object>> list(Context c) {
         List<Map<String, Object>> out = new ArrayList<>();
-        try {
-            JSONArray a = new JSONArray(c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, "[]"));
-            for (int i = 0; i < a.length(); i++) {
+        JSONArray a = load(c);
+        for (int i = 0; i < a.length(); i++) {
+            try {
                 JSONObject o = a.getJSONObject(i);
                 String pkg = o.getString("pkg");
-                String name = pkg;
+                String name;
                 try {
                     name = String.valueOf(c.getPackageManager().getApplicationLabel(
                             c.getPackageManager().getApplicationInfo(pkg, 0)));
@@ -237,13 +344,9 @@ final class ContinueWatch {
                 String path = o.optString("image", "");
                 if (!path.isEmpty() && new File(path).exists()) m.put("image", path);
                 out.add(m);
+            } catch (Exception ignored) {
             }
-        } catch (Exception ignored) {
         }
         return out;
-    }
-
-    static String lower(String s) {
-        return s == null ? "" : s.toLowerCase(Locale.ROOT);
     }
 }
