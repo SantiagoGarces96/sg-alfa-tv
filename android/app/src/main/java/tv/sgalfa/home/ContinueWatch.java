@@ -57,7 +57,12 @@ final class ContinueWatch {
         if (am == null || !am.isMusicActive()) return; // solo si se está reproduciendo algo
         long now = SystemClock.uptimeMillis();
         Long last = lastShot.get(pkg);
-        if (last != null && now - last < EVERY_MS) return;
+        if (last != null && now - last < EVERY_MS) {
+            // Entre imagen e imagen: si ahora se ve el título del capítulo, guardarlo ya.
+            String t = titleFromScreen(nodes);
+            if (t != null && EPISODE.matcher(t).find()) worker.execute(() -> updateTitle(svc, pkg, t));
+            return;
+        }
         lastShot.put(pkg, now);
 
         // Título: el que da la app (si deja verlo) o el que se lee en pantalla.
@@ -185,6 +190,23 @@ final class ContinueWatch {
                 if (!pkg.equals(o.optString("pkg"))) out.put(o);
             }
             p.edit().putString(KEY, out.toString()).apply();
+        } catch (Exception ignored) {
+        }
+    }
+
+    /** Solo el título (sin imagen nueva), si es distinto del guardado. */
+    private static synchronized void updateTitle(Context c, String pkg, String title) {
+        try {
+            SharedPreferences p = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            JSONArray a = new JSONArray(p.getString(KEY, "[]"));
+            for (int i = 0; i < a.length(); i++) {
+                JSONObject o = a.getJSONObject(i);
+                if (pkg.equals(o.optString("pkg")) && !title.equals(o.optString("title"))) {
+                    o.put("title", title);
+                    p.edit().putString(KEY, a.toString()).apply();
+                    return;
+                }
+            }
         } catch (Exception ignored) {
         }
     }
