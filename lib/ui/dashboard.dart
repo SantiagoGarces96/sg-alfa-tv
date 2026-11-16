@@ -111,9 +111,9 @@ class _ClockDateState extends State<_ClockDate> {
     final time = '${_now.hour.toString().padLeft(2, '0')}:${_now.minute.toString().padLeft(2, '0')}';
     final small = TextStyle(
         color: Colors.white.withValues(alpha: 0.9),
-        fontSize: 19 * u,
+        fontSize: 17 * u,
         fontWeight: FontWeight.w500,
-        letterSpacing: 4 * u,
+        letterSpacing: 2.6 * u,
         shadows: _shadow);
     return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
       Text(time,
@@ -140,7 +140,7 @@ class _WeatherCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final w = context.watch<WidgetsModel>();
     final wx = w.weather;
-    final st = TextStyle(color: Colors.white, fontSize: 18.5 * u, height: 1.12, fontWeight: FontWeight.w500);
+    final st = TextStyle(color: Colors.white, fontSize: 17.5 * u, height: 1.1, fontWeight: FontWeight.w500);
     return Container(
       decoration: _glass(u),
       padding: EdgeInsets.symmetric(horizontal: 15 * u, vertical: 8 * u),
