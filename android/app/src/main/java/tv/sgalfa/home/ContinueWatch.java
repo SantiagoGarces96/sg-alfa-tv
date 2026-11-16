@@ -11,6 +11,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.graphics.Rect;
 import android.media.AudioManager;
 import android.media.MediaMetadata;
 import android.media.session.MediaController;
@@ -107,6 +108,8 @@ final class ContinueWatch {
     /** Lo llama el servicio de automatizaciones cada vez que lee la pantalla de una app. */
     static void onScreen(AccessibilityService svc, String pkg, List<AccessibilityNodeInfo> nodes) {
         if (pkg == null) return;
+        // La propia app tiene su lista de «Continuar viendo» (Anime Cast): se lee tal cual.
+        if (importList(svc, pkg, nodes)) return;
         long now = SystemClock.uptimeMillis();
 
         // 1) Recordar el mejor título que se vea, haya sonido o no (el nombre suele salir con el vídeo en pausa).
@@ -313,6 +316,163 @@ final class ContinueWatch {
                 }
                 return; // solo la más reciente de esa app
             }
+        } catch (Exception ignored) {
+        }
+    }
+
+    // ------------------------------------------------------------ lista propia de la app
+
+    private static final Map<String, Long> lastImport = new HashMap<>();
+    private static final Pattern CLOCK = Pattern.compile("^(\\d{1,2}):(\\d{2})(?::(\\d{2}))?$");
+
+    private static final class Card {
+        String series, episode;
+        long pos = -1, dur = -1;
+        final Rect r = new Rect();
+    }
+
+    private static long ms(CharSequence t) {
+        if (t == null) return -1;
+        Matcher m = CLOCK.matcher(t.toString().trim());
+        if (!m.matches()) return -1;
+        long a = Long.parseLong(m.group(1)), b = Long.parseLong(m.group(2));
+        long secs = m.group(3) == null ? a * 60 + b : a * 3600 + b * 60 + Long.parseLong(m.group(3));
+        return secs * 1000;
+    }
+
+    private static boolean idIs(AccessibilityNodeInfo n, String id) {
+        String v = n.getViewIdResourceName();
+        return v != null && v.endsWith(":id/" + id);
+    }
+
+    /**
+     * Lee las tarjetas de «Continuar viendo» que la app enseña en su inicio (nombre del anime,
+     * episodio y tiempo visto) y recorta de la pantalla la imagen de cada una.
+     */
+    static boolean importList(AccessibilityService svc, String pkg, List<AccessibilityNodeInfo> nodes) {
+        List<AccessibilityNodeInfo> names = new ArrayList<>(), eps = new ArrayList<>(),
+                seen = new ArrayList<>(), total = new ArrayList<>();
+        for (AccessibilityNodeInfo n : nodes) {
+            if (idIs(n, "episodio_anime")) names.add(n);
+            else if (idIs(n, "episodio_nombre")) eps.add(n);
+            else if (idIs(n, "episodio_tiempo_visto")) seen.add(n);
+            else if (idIs(n, "episodio_tiempo_total")) total.add(n);
+        }
+        if (names.isEmpty()) return false;
+        final List<Card> cards = new ArrayList<>();
+        java.util.Set<String> done = new java.util.HashSet<>();
+        Rect b = new Rect();
+        for (AccessibilityNodeInfo nm : names) {
+            CharSequence t = nm.getText();
+            if (t == null) continue;
+            Card c = new Card();
+            c.series = t.toString().trim();
+            nm.getBoundsInScreen(c.r);
+            int bottom = c.r.bottom;
+            for (int g = 0; g < 3; g++) {
+                List<AccessibilityNodeInfo> group = g == 0 ? eps : (g == 1 ? seen : total);
+                for (AccessibilityNodeInfo x : group) {
+                    x.getBoundsInScreen(b);
+                    if (b.centerX() < c.r.left || b.centerX() > c.r.right || b.top < c.r.top) continue;
+                    if (g == 0) c.episode = x.getText() == null ? null : x.getText().toString().trim();
+                    else if (g == 1) c.pos = ms(x.getText());
+                    else c.dur = ms(x.getText());
+                    bottom = Math.max(bottom, b.bottom);
+                    break;
+                }
+            }
+            c.r.bottom = bottom + 26; // incluye la barrita de progreso
+            if (c.series.isEmpty() || !done.add(c.series.toLowerCase(Locale.ROOT))) continue; // una por anime
+            cards.add(c);
+        }
+        if (cards.isEmpty()) return true;
+        long now = SystemClock.uptimeMillis();
+        Long li = lastImport.get(pkg);
+        boolean shot = li == null || now - li > 5 * 60_000;
+        if (shot && Build.VERSION.SDK_INT >= 30) {
+            lastImport.put(pkg, now);
+            try {
+                svc.takeScreenshot(Display.DEFAULT_DISPLAY, worker, new AccessibilityService.TakeScreenshotCallback() {
+                    @Override
+                    public void onSuccess(AccessibilityService.ScreenshotResult res) {
+                        Bitmap full = null;
+                        try {
+                            Bitmap hw = Bitmap.wrapHardwareBuffer(res.getHardwareBuffer(), res.getColorSpace());
+                            if (hw != null) full = hw.copy(Bitmap.Config.ARGB_8888, false);
+                            res.getHardwareBuffer().close();
+                        } catch (Exception ignored) {
+                        }
+                        saveImported(svc, pkg, cards, full);
+                    }
+
+                    @Override
+                    public void onFailure(int errorCode) {
+                        saveImported(svc, pkg, cards, null);
+                    }
+                });
+                return true;
+            } catch (Exception ignored) {
+            }
+        }
+        worker.execute(() -> saveImported(svc, pkg, cards, null));
+        return true;
+    }
+
+    private static synchronized void saveImported(Context ctx, String pkg, List<Card> cards, Bitmap full) {
+        try {
+            JSONArray old = load(ctx);
+            Map<String, JSONObject> byKey = new HashMap<>();
+            for (int i = 0; i < old.length(); i++) {
+                JSONObject o = old.getJSONObject(i);
+                byKey.put(o.optString("key"), o);
+            }
+            File dir = new File(ctx.getFilesDir(), "continue");
+            if (!dir.exists()) dir.mkdirs();
+            JSONArray out = new JSONArray();
+            java.util.Set<String> keys = new java.util.HashSet<>();
+            long t0 = System.currentTimeMillis();
+            boolean changed = false;
+            for (int i = 0; i < cards.size(); i++) {
+                Card c = cards.get(i);
+                String title = c.episode == null || c.episode.isEmpty() ? c.series : c.series + " - " + c.episode;
+                String key = pkg + "|" + c.series.toLowerCase(Locale.ROOT);
+                keys.add(key);
+                JSONObject prev = byKey.get(key);
+                JSONObject item = new JSONObject();
+                item.put("key", key);
+                item.put("pkg", pkg);
+                item.put("title", title);
+                item.put("sub", "");
+                item.put("pos", c.pos);
+                item.put("dur", c.dur);
+                item.put("time", t0 - i);
+                File img = new File(dir, Integer.toHexString(key.hashCode()) + ".jpg");
+                if (full != null) {
+                    Rect r = new Rect(c.r);
+                    if (r.intersect(0, 0, full.getWidth(), full.getHeight()) && r.width() > 40 && r.height() > 40) {
+                        Bitmap crop = Bitmap.createBitmap(full, r.left, r.top, r.width(), r.height());
+                        Bitmap small = Bitmap.createScaledBitmap(crop, 480, Math.max(1, 480 * r.height() / r.width()), true);
+                        try (FileOutputStream f = new FileOutputStream(img)) {
+                            small.compress(Bitmap.CompressFormat.JPEG, 85, f);
+                        }
+                        changed = true;
+                    }
+                }
+                item.put("image", img.exists() ? img.getAbsolutePath() : (prev != null ? prev.optString("image", "") : ""));
+                if (prev == null || !title.equals(prev.optString("title")) || c.pos != prev.optLong("pos", -2)) changed = true;
+                out.put(item);
+            }
+            // Las tarjetas sin nombre de esta app (capturadas antes) sobran: ya están las de su lista.
+            for (int i = 0; i < old.length() && out.length() < MAX; i++) {
+                JSONObject o = old.getJSONObject(i);
+                if (keys.contains(o.optString("key"))) continue;
+                if (pkg.equals(o.optString("pkg")) && score(o.optString("title", "")) < 3) {
+                    changed = true;
+                    continue;
+                }
+                out.put(o);
+            }
+            if (changed) store(ctx, out);
         } catch (Exception ignored) {
         }
     }
