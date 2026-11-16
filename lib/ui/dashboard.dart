@@ -108,20 +108,26 @@ class _ClockDateState extends State<_ClockDate> {
   @override
   Widget build(BuildContext context) {
     final u = widget.u;
-    final time = '${_now.hour.toString().padLeft(2, '0')}:${_now.minute.toString().padLeft(2, '0')}';
+    final time = hora12(_now);
     final small = TextStyle(
         color: Colors.white.withValues(alpha: 0.9),
         fontSize: 17 * u,
         fontWeight: FontWeight.w500,
-        letterSpacing: 2.6 * u,
+        letterSpacing: 2 * u,
         shadows: _shadow);
     return Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
       Text(time,
           style: TextStyle(
-              color: Colors.white, fontSize: 76 * u, fontWeight: FontWeight.w300, height: 1, shadows: _shadow)),
-      SizedBox(width: 36 * u),
+              color: Colors.white, fontSize: 74 * u, fontWeight: FontWeight.w300, height: 1, shadows: _shadow)),
+      SizedBox(width: 8 * u),
+      Padding(
+        padding: EdgeInsets.only(top: 22 * u),
+        child: Text(ampm(_now),
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 22 * u, fontWeight: FontWeight.w400, shadows: _shadow)),
+      ),
+      SizedBox(width: 24 * u),
       Container(width: 1.5 * u, height: 50 * u, color: Colors.white.withValues(alpha: 0.4)),
-      SizedBox(width: 28 * u),
+      SizedBox(width: 22 * u),
       Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
         Text(_days[_now.weekday - 1], style: small),
         SizedBox(height: 14 * u),
@@ -149,8 +155,9 @@ class _WeatherCard extends StatelessWidget {
           ? Text(w.city.isEmpty ? 'Clima: elige tu ciudad en Ajustes' : 'Clima · ${w.city}\nCargando…',
               style: st, maxLines: 3)
           : Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
-              Text('${wx.temp} °C · ${wx.city}', style: st, maxLines: 1, overflow: TextOverflow.ellipsis),
-              Text(wx.desc, style: st, maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(wx.city.length > 12 ? '${wx.temp} °C · ${wx.desc}' : '${wx.temp} °C · ${wx.city}',
+                  style: st, maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(wx.city.length > 12 ? wx.city : wx.desc, style: st, maxLines: 1, overflow: TextOverflow.ellipsis),
               Text('Máx. ${wx.max}°  /  Mín. ${wx.min}°', style: st, maxLines: 1),
             ]),
     );

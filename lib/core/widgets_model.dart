@@ -40,7 +40,7 @@ String weatherText(int c) {
 }
 
 class WidgetsModel extends ChangeNotifier with WidgetsBindingObserver {
-  String city = 'Bogotá';
+  String city = 'Santa Fe de Antioquia';
   Weather? weather;
   Map media = const {};
   List<Map> recent = const [];

@@ -43,3 +43,8 @@ class Native {
     });
   }
 }
+
+/// Hora en formato de 12 horas: «6:38» (sin cero delante) y aparte «a. m.» / «p. m.».
+String hora12(DateTime t) => '${t.hour % 12 == 0 ? 12 : t.hour % 12}:${t.minute.toString().padLeft(2, '0')}';
+
+String ampm(DateTime t) => t.hour < 12 ? 'a. m.' : 'p. m.';

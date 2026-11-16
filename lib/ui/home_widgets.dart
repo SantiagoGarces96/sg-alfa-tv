@@ -223,7 +223,7 @@ class _HomeHeroState extends State<HomeHero> {
   @override
   Widget build(BuildContext context) {
     final date = '${_days[_now.weekday - 1]} ${_now.day} de ${_months[_now.month - 1]}';
-    final time = '${_now.hour.toString().padLeft(2, '0')}:${_now.minute.toString().padLeft(2, '0')}';
+    final time = '${hora12(_now)} ${ampm(_now)}';
     final focused = context.select<AppsModel, String?>((m) => m.focusedLabel);
     final theme = context.watch<ThemeModel>().current;
     final showToday = theme.today;
@@ -408,7 +408,7 @@ class _TopClockState extends State<TopClock> {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.35), borderRadius: BorderRadius.circular(20)),
-        child: Text('${_now.hour.toString().padLeft(2, '0')}:${_now.minute.toString().padLeft(2, '0')}',
+        child: Text('${hora12(_now)} ${ampm(_now)}',
             style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
       );
 }
