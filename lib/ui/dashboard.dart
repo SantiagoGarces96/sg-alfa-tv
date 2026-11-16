@@ -6,6 +6,7 @@
  */
 
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -16,7 +17,6 @@ import '../core/apps_model.dart';
 import '../core/native.dart';
 import '../core/widgets_model.dart';
 import 'home_widgets.dart';
-import 'mascot.dart';
 import 'nav.dart';
 
 double dashUnit(BuildContext context) => MediaQuery.sizeOf(context).width / 1600;
@@ -52,7 +52,7 @@ class DashTopBar extends StatelessWidget {
       child: SizedBox(
         height: 140 * u,
         child: Stack(children: [
-          Positioned(left: 95 * u, top: 40 * u, child: _ClockDate(u: u)),
+          Positioned(left: 95 * u, top: 47 * u, height: 82 * u, child: _ClockDate(u: u)),
           Positioned(left: 572 * u, top: 47 * u, width: 214 * u, height: 82 * u, child: _WeatherCard(u: u)),
           Positioned(left: 803 * u, top: 47 * u, width: 425 * u, height: 82 * u, child: _MediaCard(u: u)),
           Positioned(
@@ -350,7 +350,7 @@ class _Pill extends StatelessWidget {
 
 // ======================================================================= continuar viendo
 
-/// «Continuar viendo»: las últimas apps que usaste, con Alfi sentado encima.
+/// «Continuar viendo»: lo que estabas viendo dentro de cada app (episodio, imagen y progreso).
 class ContinueHero extends StatelessWidget {
   final double topBarHeight;
 
@@ -359,107 +359,133 @@ class ContinueHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final u = dashUnit(context);
-    final recent = context.watch<WidgetsModel>().recent.take(4).toList();
-    // Coordenadas de la imagen de referencia, pasadas a este recuadro (empieza bajo la barra).
+    final items = context.watch<WidgetsModel>().watching.take(4).toList();
     double y(double v) => v * u - topBarHeight;
     return Stack(clipBehavior: Clip.none, children: [
-      if (recent.isNotEmpty)
-        Positioned(
-          left: 95 * u,
-          top: y(500),
-          child: Text('Continuar viendo',
-              style: TextStyle(color: Colors.white, fontSize: 30 * u, fontWeight: FontWeight.w500, shadows: _shadow)),
-        ),
+      Positioned(
+        left: 95 * u,
+        top: y(500),
+        child: Text('Continuar viendo',
+            style: TextStyle(color: Colors.white, fontSize: 30 * u, fontWeight: FontWeight.w500, shadows: _shadow)),
+      ),
       Positioned(
         left: 95 * u,
         top: y(540),
-        child: Nav.arrows(
-          up: Nav.toTopBar,
-          down: Nav.toDock,
-          child: Row(children: [
-            for (var i = 0; i < recent.length; i++) ...[
-              if (i > 0) SizedBox(width: 15 * u),
-              _ContinueCard(u: u, app: recent[i], focusNode: i == 0 ? Nav.suggestion : null),
-            ],
-          ]),
-        ),
+        child: items.isEmpty
+            ? Container(
+                width: 700 * u,
+                height: 92 * u,
+                alignment: Alignment.centerLeft,
+                padding: EdgeInsets.symmetric(horizontal: 22 * u),
+                decoration: _glass(u, radius: 16),
+                child: Text('Aquí aparecerá lo que estés viendo en tus apps (series, capítulos, videos).',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 20 * u)),
+              )
+            : Nav.arrows(
+                up: Nav.toTopBar,
+                down: Nav.toDock,
+                child: Row(children: [
+                  for (var i = 0; i < items.length; i++) ...[
+                    if (i > 0) SizedBox(width: 15 * u),
+                    _ContinueCard(u: u, item: items[i], focusNode: i == 0 ? Nav.suggestion : null),
+                  ],
+                ]),
+              ),
       ),
-      // Alfi sentado sobre las tarjetas (como la mascota de la imagen).
-      Positioned(left: 676 * u, top: y(420), child: IgnorePointer(child: AlfiSprite(size: 140 * u))),
     ]);
   }
 }
 
 class _ContinueCard extends StatefulWidget {
   final double u;
-  final Map app;
+  final Map item;
   final FocusNode? focusNode;
 
-  const _ContinueCard({required this.u, required this.app, this.focusNode});
+  const _ContinueCard({required this.u, required this.item, this.focusNode});
 
   @override
   State<_ContinueCard> createState() => _ContinueCardState();
 }
 
 class _ContinueCardState extends State<_ContinueCard> {
-  Future<Uint8List?>? _img;
+  Future<Uint8List?>? _banner;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _img ??= context.read<AppsModel>().image('${widget.app['package']}');
+    if (widget.item['image'] == null) _banner ??= context.read<AppsModel>().image('${widget.item['package']}');
   }
 
   @override
   Widget build(BuildContext context) {
     final u = widget.u;
-    final name = '${widget.app['name']}';
-    final minutes = (widget.app['minutesToday'] as num?)?.toDouble() ?? 0;
-    final progress = (minutes / 90).clamp(0.06, 1.0);
+    final it = widget.item;
+    final title = '${it['title'] ?? ''}'.trim();
+    final app = '${it['app'] ?? ''}';
+    final pos = (it['pos'] as num?)?.toDouble() ?? -1;
+    final dur = (it['dur'] as num?)?.toDouble() ?? -1;
+    final progress = pos > 0 && dur > 0 ? (pos / dur).clamp(0.02, 1.0) : null;
+    final image = it['image'] as String?;
     return _Focusable(
       focusNode: widget.focusNode,
-      onPressed: () => Native.launch('${widget.app['package']}'),
+      onPressed: () => Native.launch('${it['package']}'),
       builder: (f) => Container(
         width: 338 * u,
         height: 92 * u,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16 * u),
-          border: Border.all(color: f ? Colors.white : Colors.white.withValues(alpha: 0.15), width: (f ? 3 : 1) * u),
           boxShadow: f ? [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 16 * u)] : const [],
         ),
+        foregroundDecoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16 * u),
+          border: Border.all(color: f ? Colors.white : Colors.white.withValues(alpha: 0.12), width: (f ? 3 : 1) * u),
+        ),
         child: Stack(fit: StackFit.expand, children: [
-          FutureBuilder<Uint8List?>(
-            future: _img,
-            builder: (_, s) => s.data == null
-                ? ColoredBox(color: Colors.white.withValues(alpha: 0.1))
-                : Image.memory(s.data!, fit: BoxFit.cover, gaplessPlayback: true),
-          ),
+          if (image != null)
+            Image.file(File(image), fit: BoxFit.cover, cacheWidth: 480, gaplessPlayback: true)
+          else
+            FutureBuilder<Uint8List?>(
+              future: _banner,
+              builder: (_, s) => s.data == null
+                  ? ColoredBox(color: Colors.white.withValues(alpha: 0.1))
+                  : Image.memory(s.data!, fit: BoxFit.cover, gaplessPlayback: true),
+            ),
           const DecoratedBox(
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [Color(0xCC000000), Color(0x33000000)]),
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [Color(0xDD000000), Color(0x00000000)],
+              ),
             ),
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(16 * u, 8 * u, 16 * u, 8 * u),
+            padding: EdgeInsets.fromLTRB(16 * u, 8 * u, 16 * u, 9 * u),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.end, children: [
-              Text(name,
+              Text(title.isEmpty ? app : title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                       color: Colors.white, fontSize: 21 * u, height: 1.15, fontWeight: FontWeight.w600, shadows: _shadow)),
-              SizedBox(height: 6 * u),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(2 * u),
-                child: SizedBox(
-                  height: 4 * u,
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    backgroundColor: Colors.white.withValues(alpha: 0.25),
-                    valueColor: const AlwaysStoppedAnimation(Color(0xFF4DD0C8)),
+              if (progress != null) ...[
+                SizedBox(height: 6 * u),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(2 * u),
+                  child: SizedBox(
+                    height: 4 * u,
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      backgroundColor: Colors.white.withValues(alpha: 0.25),
+                      valueColor: const AlwaysStoppedAnimation(Color(0xFF4DD0C8)),
+                    ),
                   ),
                 ),
-              ),
+              ] else if (title.isNotEmpty && title != app)
+                Text(app,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 16 * u, shadows: _shadow)),
             ]),
           ),
         ]),

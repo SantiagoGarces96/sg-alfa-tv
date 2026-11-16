@@ -60,6 +60,12 @@ public final class WidgetsChannel {
                         main.post(() -> result.success(r));
                     });
                     break;
+                case "continueWatching":
+                    io.execute(() -> {
+                        List<Map<String, Object>> r = ContinueWatch.list(activity);
+                        main.post(() -> result.success(r));
+                    });
+                    break;
                 case "media":
                     io.execute(() -> {
                         Map<String, Object> m = media();

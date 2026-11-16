@@ -45,6 +45,9 @@ class WidgetsModel extends ChangeNotifier with WidgetsBindingObserver {
   Map media = const {};
   List<Map> recent = const [];
 
+  /// Lo que se estaba viendo dentro de cada app (imagen del momento, título y progreso).
+  List<Map> watching = const [];
+
   Timer? _fast; // lo que suena
   Timer? _slow; // apps recientes y clima
   DateTime _weatherAt = DateTime(2000);
@@ -78,6 +81,16 @@ class WidgetsModel extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> refreshRecent() async {
+    try {
+      final w = await Native.widgets.invokeMethod<List>('continueWatching');
+      if (w != null) {
+        final list = w.whereType<Map>().toList();
+        if (list.toString() != watching.toString()) {
+          watching = list;
+          notifyListeners();
+        }
+      }
+    } catch (_) {}
     try {
       final r = await Native.widgets.invokeMethod<List>('recentApps');
       if (r == null) return;

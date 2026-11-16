@@ -81,7 +81,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final tab = theme.tablero;
     final u = size.width / 1600;
     final topH = tab ? 140 * u : _topBar;
-    final heroHeight = tab
+    final heroHeight = _heroH = tab
         ? 660 * u - topH
         : theme.showcase
             ? (size.height * 0.70 - _topBar).clamp(200.0, 2000.0)
@@ -164,6 +164,25 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  double _heroH = 0;
+
+  /// Tablero: al bajar a «todas las apps», la parte de arriba desaparece entera (sin quedar cortada).
+  void _gridScroll(BuildContext ctx) {
+    if (!_scroll.hasClients) return;
+    if (_scroll.offset < _heroH - 1) {
+      _scroll.animateTo(_heroH, duration: const Duration(milliseconds: 260), curve: Curves.easeOutCubic);
+    } else {
+      Scrollable.ensureVisible(ctx,
+          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic);
+      Scrollable.ensureVisible(ctx,
+          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic);
+    }
+  }
+
   /// En el dock la página se queda arriba (para ver la hora y TU TELE HOY).
   void _scrollTop(BuildContext _) {
     if (_scroll.hasClients && _scroll.offset > 0) {
@@ -173,11 +192,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _tile(TvApp app, {bool first = false, bool inDock = false, required bool showNames, bool nameSpace = false}) {
     final apps = context.read<AppsModel>();
+    final tab = context.read<ThemeModel>().current.tablero;
     return AppTile(
       app: app,
       autofocus: first,
       focusNode: first ? Nav.dock : null,
-      onFocusScroll: inDock ? _scrollTop : null,
+      onFocusScroll: inDock ? _scrollTop : (tab ? _gridScroll : null),
       showName: showNames,
       nameSpace: nameSpace,
       onOpen: () => apps.launch(app),

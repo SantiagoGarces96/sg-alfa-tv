@@ -174,9 +174,8 @@ class _AppTileState extends State<AppTile> {
         ),
       // Tablero: borde blanco con brillo suave.
       'aro' => BoxDecoration(
-          color: Retro.panel,
+          color: widget.app.hasBanner ? Colors.transparent : Retro.panel,
           borderRadius: BorderRadius.circular(r),
-          border: Border.all(color: _focused ? Colors.white : Colors.transparent, width: 3),
           boxShadow: _focused
               ? [BoxShadow(color: Colors.white.withValues(alpha: 0.35), blurRadius: 14, spreadRadius: 1)]
               : const [],
@@ -203,6 +202,13 @@ class _AppTileState extends State<AppTile> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         decoration: deco,
+        // El aro se dibuja ENCIMA de la imagen: no le quita espacio (antes dejaba un marco oscuro).
+        foregroundDecoration: style == 'aro' && _focused
+            ? BoxDecoration(
+                borderRadius: BorderRadius.circular(r),
+                border: Border.all(color: Colors.white, width: 3),
+              )
+            : null,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(r),
           child: FutureBuilder<Uint8List?>(
@@ -250,6 +256,15 @@ class _AppTileState extends State<AppTile> {
     final img = Image.memory(bytes, gaplessPlayback: true, filterQuality: FilterQuality.medium);
     if (widget.app.hasBanner) {
       return SizedBox.expand(child: FittedBox(fit: BoxFit.cover, child: img));
+    }
+    // Tablero (apps pequeñas): solo el icono, centrado; el nombre no cabe y se veía partido.
+    if (Retro.theme.tablero) {
+      return Container(
+        color: Retro.panel,
+        padding: const EdgeInsets.all(6),
+        alignment: Alignment.center,
+        child: AspectRatio(aspectRatio: 1, child: img),
+      );
     }
     // Solo icono: icono + nombre sobre fondo nocturno.
     return Container(

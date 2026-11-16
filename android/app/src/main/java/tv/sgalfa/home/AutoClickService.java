@@ -340,6 +340,7 @@ public class AutoClickService extends AccessibilityService {
             return;
         }
         spotAd(s);
+        ContinueWatch.onScreen(this, s.pkg, s.nodes);
         long now = SystemClock.uptimeMillis();
         for (Macros.Macro m : macros) {
             if (!m.enabled || pending.contains(m.id)) continue;
