@@ -40,7 +40,8 @@ import java.util.regex.Pattern;
 final class ContinueWatch {
     private static final String PREFS = "sgalfa_continue";
     private static final String KEY = "items2";
-    private static final int MAX = 12;
+    private static final int MAX = 8;
+    static final int SHOW = 6; // en el inicio, como mucho 6 tarjetas
     private static final long SHOT_EVERY_MS = 60_000;
     private static final long REMEMBER_MS = 20 * 60_000; // un título visto hace poco vale para lo que se reproduzca
 
@@ -48,6 +49,7 @@ final class ContinueWatch {
     /** Último buen título visto en cada app (aunque no hubiera nada sonando). */
     private static final Map<String, String> lastTitle = new HashMap<>();
     private static final Map<String, Long> lastTitleAt = new HashMap<>();
+    private static final Map<String, String> strong = new HashMap<>();
     private static final Executor worker = Executors.newSingleThreadExecutor();
 
     private static final Pattern TIME = Pattern.compile("^[-\\d:\\s/.]+$");
@@ -65,6 +67,87 @@ final class ContinueWatch {
     }
 
     // ------------------------------------------------------------ títulos
+
+    /** Pantallas que no son «algo que se ve» (el propio inicio, ajustes, teclado…). */
+    private static final java.util.Set<String> SKIP = new java.util.HashSet<>(java.util.Arrays.asList(
+            "com.android.systemui", "com.android.tv.settings", "com.android.settings", "com.google.android.inputmethod.latin",
+            "com.google.android.tvlauncher", "com.google.android.apps.tv.launcherx", "com.spocky.projengmenu",
+            "com.android.packageinstaller", "com.google.android.packageinstaller", "com.google.android.permissioncontroller",
+            "com.android.vending", "com.google.android.katniss", "com.google.android.leanbacklauncher"));
+
+    static boolean skip(Context c, String pkg) {
+        return pkg == null || pkg.equals(c.getPackageName()) || SKIP.contains(pkg);
+    }
+
+    /**
+     * Campos donde los reproductores suelen poner lo que suena: el canal actual de WiwyXuper/XuperHydra
+     * (mTvChannel), el título del vídeo, etc. Por orden de preferencia.
+     */
+    private static final String[] TITLE_IDS = {
+            "mTvChannel", "mTvVideoTitle", "mTvVideoName", "mTvMovieName", "mTvMovieTitle", "mTvPlayTitle", "mTvName",
+            "video_title", "videoTitle", "movie_title", "player_title", "exo_title", "tv_title", "tvTitle", "title_text"};
+
+    /** Título leído de los campos del reproductor (lo más fiable cuando la app no dice «Episodio»). */
+    static String titleFromIds(List<AccessibilityNodeInfo> nodes) {
+        String best = null;
+        int bestRank = Integer.MAX_VALUE;
+        for (AccessibilityNodeInfo n : nodes) {
+            String id = n.getViewIdResourceName();
+            CharSequence t = n.getText();
+            if (id == null || t == null) continue;
+            int slash = id.indexOf(":id/");
+            String name = slash >= 0 ? id.substring(slash + 4) : id;
+            for (int i = 0; i < TITLE_IDS.length && i < bestRank; i++) {
+                if (!name.equalsIgnoreCase(TITLE_IDS[i])) continue;
+                String s = t.toString().trim().replaceAll("\s+", " ");
+                if (s.length() >= 2 && s.length() <= 90 && !TIME.matcher(s).matches()) {
+                    best = s;
+                    bestRank = i;
+                }
+            }
+        }
+        return best;
+    }
+
+    /** Lo último que se eligió (pulsó) dentro de cada app: la película, serie o canal que se abrió. */
+    private static final Map<String, String> picked = new HashMap<>();
+    private static final Map<String, Long> pickedAt = new HashMap<>();
+
+    static void onClick(Context c, String pkg, AccessibilityNodeInfo source, List<CharSequence> eventText) {
+        if (skip(c, pkg)) return;
+        String t = null;
+        if (source != null) t = firstText(source, 0);
+        if (t == null && eventText != null) {
+            for (CharSequence x : eventText) {
+                if (x != null && good(x.toString())) {
+                    t = x.toString().trim();
+                    break;
+                }
+            }
+        }
+        if (t == null) return;
+        picked.put(pkg, t);
+        pickedAt.put(pkg, SystemClock.uptimeMillis());
+    }
+
+    private static boolean good(String s) {
+        s = s.trim();
+        return s.length() >= 2 && s.length() <= 80 && !TIME.matcher(s).matches() && !NOISE.matcher(s).find()
+                && Character.isLetterOrDigit(s.codePointAt(0)) && s.chars().anyMatch(Character::isLetter);
+    }
+
+    private static String firstText(AccessibilityNodeInfo n, int depth) {
+        if (n == null || depth > 5) return null;
+        CharSequence t = n.getText();
+        if (t != null && good(t.toString())) return t.toString().trim().replaceAll("\s+", " ");
+        CharSequence d = n.getContentDescription();
+        if (d != null && good(d.toString())) return d.toString().trim();
+        for (int i = 0; i < n.getChildCount(); i++) {
+            String r = firstText(n.getChild(i), depth + 1);
+            if (r != null) return r;
+        }
+        return null;
+    }
 
     /** 3 = nombre + episodio; 2 = texto que habla de episodio; 0 = no sirve. */
     private static int score(String s) {
@@ -107,11 +190,20 @@ final class ContinueWatch {
 
     /** Lo llama el servicio de automatizaciones cada vez que lee la pantalla de una app. */
     static void onScreen(AccessibilityService svc, String pkg, List<AccessibilityNodeInfo> nodes) {
-        if (pkg == null) return;
+        if (skip(svc, pkg)) return;
         // La propia app tiene su lista de «Continuar viendo» (Anime Cast): se lee tal cual.
         if (importList(svc, pkg, nodes)) return;
         long now = SystemClock.uptimeMillis();
 
+        // 0) Título de los campos del reproductor (canal o vídeo actual): el más fiable.
+        String fromIds = titleFromIds(nodes);
+        if (fromIds != null) {
+            lastTitle.put(pkg, fromIds);
+            lastTitleAt.put(pkg, now);
+            strong.put(pkg, fromIds);
+            final String t0 = fromIds;
+            worker.execute(() -> nameUnnamed(svc, pkg, t0));
+        }
         // 1) Recordar el mejor título que se vea, haya sonido o no (el nombre suele salir con el vídeo en pausa).
         String seen = titleFromScreen(nodes);
         if (seen != null) {
@@ -153,6 +245,15 @@ final class ContinueWatch {
         Long tAt = lastTitleAt.get(pkg);
         String remembered = tAt != null && now - tAt < REMEMBER_MS ? lastTitle.get(pkg) : null;
         if (score(remembered) > score(title)) title = remembered;
+        // Sin «Episodio»: el canal o vídeo del reproductor, o lo que se eligió en la app hace poco.
+        if (title == null || title.trim().isEmpty()) {
+            String s = tAt != null && now - tAt < REMEMBER_MS ? strong.get(pkg) : null;
+            if (s == null) {
+                Long pAt = pickedAt.get(pkg);
+                if (pAt != null && now - pAt < 30 * 60_000) s = picked.get(pkg);
+            }
+            title = s;
+        }
         final String fTitle = title, fSub = sub;
         final long fPos = pos, fDur = dur;
 
@@ -320,6 +421,24 @@ final class ContinueWatch {
         }
     }
 
+    private static synchronized void nameUnnamed(Context c, String pkg, String title) {
+        try {
+            JSONArray a = load(c);
+            for (int i = 0; i < a.length(); i++) {
+                JSONObject o = a.getJSONObject(i);
+                if (!pkg.equals(o.optString("pkg"))) continue;
+                if (o.optString("title", "").trim().isEmpty()
+                        && System.currentTimeMillis() - o.optLong("time", 0) < REMEMBER_MS) {
+                    o.put("title", title);
+                    o.put("key", keyOf(pkg, title));
+                    store(c, a);
+                }
+                return;
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
     // ------------------------------------------------------------ lista propia de la app
 
     private static final Map<String, Long> lastImport = new HashMap<>();
@@ -482,10 +601,11 @@ final class ContinueWatch {
     static List<Map<String, Object>> list(Context c) {
         List<Map<String, Object>> out = new ArrayList<>();
         JSONArray a = load(c);
-        for (int i = 0; i < a.length(); i++) {
+        for (int i = 0; i < a.length() && out.size() < SHOW; i++) {
             try {
                 JSONObject o = a.getJSONObject(i);
                 String pkg = o.getString("pkg");
+                if (skip(c, pkg) || o.optString("title", "").trim().isEmpty()) continue;
                 String name;
                 try {
                     name = String.valueOf(c.getPackageManager().getApplicationLabel(

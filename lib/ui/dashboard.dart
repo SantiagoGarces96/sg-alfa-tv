@@ -405,8 +405,10 @@ class _Focusable extends StatefulWidget {
   final Widget Function(bool focused) builder;
   final VoidCallback onPressed;
   final FocusNode? focusNode;
+  final VoidCallback? onFocused;
 
   const _Focusable({
+    this.onFocused,
     required this.builder,
     required this.onPressed,
     this.focusNode,
@@ -424,18 +426,7 @@ class _FocusableState extends State<_Focusable> {
     focusNode: widget.focusNode,
     onFocusChange: (f) {
       setState(() => _f = f);
-      if (f) {
-        Scrollable.ensureVisible(
-          context,
-          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
-          duration: const Duration(milliseconds: 200),
-        );
-        Scrollable.ensureVisible(
-          context,
-          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart,
-          duration: const Duration(milliseconds: 200),
-        );
-      }
+      if (f) widget.onFocused?.call();
     },
     onKeyEvent: (_, e) {
       if (e is KeyDownEvent &&
@@ -573,7 +564,7 @@ class ContinueHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final u = dashUnit(context);
-    final items = context.watch<WidgetsModel>().watching.take(8).toList();
+    final items = context.watch<WidgetsModel>().watching.take(6).toList();
     double y(double v) => v * u - topBarHeight;
     return Stack(
       clipBehavior: Clip.none,
@@ -614,23 +605,7 @@ class ContinueHero extends StatelessWidget {
                   up: Nav.toTopBar,
                   down: Nav.toDock,
                   // Fila que crece con lo que vas viendo y se desliza con el mando.
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    clipBehavior: Clip.none,
-                    padding: EdgeInsets.symmetric(horizontal: 95 * u),
-                    child: Row(
-                      children: [
-                        for (var i = 0; i < items.length; i++) ...[
-                          if (i > 0) SizedBox(width: 15 * u),
-                          _ContinueCard(
-                            u: u,
-                            item: items[i],
-                            focusNode: i == 0 ? Nav.suggestion : null,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
+                  child: _ContinueRow(u: u, items: items),
                 ),
         ),
       ],
@@ -643,7 +618,14 @@ class _ContinueCard extends StatefulWidget {
   final Map item;
   final FocusNode? focusNode;
 
-  const _ContinueCard({required this.u, required this.item, this.focusNode});
+  final VoidCallback? onFocused;
+
+  const _ContinueCard({
+    required this.u,
+    required this.item,
+    this.focusNode,
+    this.onFocused,
+  });
 
   @override
   State<_ContinueCard> createState() => _ContinueCardState();
@@ -670,6 +652,7 @@ class _ContinueCardState extends State<_ContinueCard> {
     final progress = pos > 0 && dur > 0 ? (pos / dur).clamp(0.02, 1.0) : null;
     final image = it['image'] as String?;
     return _Focusable(
+      onFocused: widget.onFocused,
       focusNode: widget.focusNode,
       onPressed: () => Native.launch('${it['package']}'),
       builder: (f) => Container(
@@ -773,6 +756,65 @@ class _ContinueCardState extends State<_ContinueCard> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Fila de «Continuar viendo»: se desliza tarjeta a tarjeta sin cortar la primera.
+class _ContinueRow extends StatefulWidget {
+  final double u;
+  final List<Map> items;
+
+  const _ContinueRow({required this.u, required this.items});
+
+  @override
+  State<_ContinueRow> createState() => _ContinueRowState();
+}
+
+class _ContinueRowState extends State<_ContinueRow> {
+  final _ctrl = ScrollController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _show(int i) {
+    if (!_ctrl.hasClients) return;
+    final step = (338 + 15) * widget.u;
+    final target = (i <= 2 ? 0.0 : (i - 2) * step).clamp(
+      0.0,
+      _ctrl.position.maxScrollExtent,
+    );
+    _ctrl.animateTo(
+      target,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final u = widget.u;
+    return SingleChildScrollView(
+      controller: _ctrl,
+      scrollDirection: Axis.horizontal,
+      clipBehavior: Clip.none,
+      padding: EdgeInsets.symmetric(horizontal: 95 * u),
+      child: Row(
+        children: [
+          for (var i = 0; i < widget.items.length; i++) ...[
+            if (i > 0) SizedBox(width: 15 * u),
+            _ContinueCard(
+              u: u,
+              item: widget.items[i],
+              focusNode: i == 0 ? Nav.suggestion : null,
+              onFocused: () => _show(i),
+            ),
+          ],
+        ],
       ),
     );
   }

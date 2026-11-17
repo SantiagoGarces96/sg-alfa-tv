@@ -313,6 +313,11 @@ public class AutoClickService extends AccessibilityService {
     public void onAccessibilityEvent(AccessibilityEvent event) {
         CharSequence p = event.getPackageName();
         String pkg = p == null ? "" : p.toString();
+        if (event.getEventType() == AccessibilityEvent.TYPE_VIEW_CLICKED) {
+            // Lo que se elige dentro de una app (película, serie, canal): título para «Continuar viendo».
+            ContinueWatch.onClick(this, pkg, event.getSource(), event.getText());
+            return;
+        }
         boolean cleaning = cleaner != null && cleaner.running();
         if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && !cleaning && !pkg.equals(getPackageName())) {
             watchWindow(pkg, event.getClassName());
