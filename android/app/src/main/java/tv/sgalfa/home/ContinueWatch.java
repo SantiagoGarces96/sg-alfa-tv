@@ -336,8 +336,22 @@ final class ContinueWatch {
         }
     }
 
+    /** Como mucho las 2 últimas de cada app (la lista ya viene de más reciente a más antigua). */
+    static final int PER_APP = 2;
+
     private static void store(Context c, JSONArray a) {
-        c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, a.toString()).apply();
+        JSONArray out = new JSONArray();
+        Map<String, Integer> count = new HashMap<>();
+        for (int i = 0; i < a.length(); i++) {
+            JSONObject o = a.optJSONObject(i);
+            if (o == null) continue;
+            String pkg = o.optString("pkg");
+            int n = count.containsKey(pkg) ? count.get(pkg) : 0;
+            if (n >= PER_APP) continue;
+            count.put(pkg, n + 1);
+            out.put(o);
+        }
+        c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, out.toString()).apply();
     }
 
     private static synchronized void save(Context c, String pkg, String title, String sub, long pos, long dur, Bitmap frame) {
@@ -600,12 +614,16 @@ final class ContinueWatch {
 
     static List<Map<String, Object>> list(Context c) {
         List<Map<String, Object>> out = new ArrayList<>();
+        Map<String, Integer> perApp = new HashMap<>();
         JSONArray a = load(c);
         for (int i = 0; i < a.length() && out.size() < SHOW; i++) {
             try {
                 JSONObject o = a.getJSONObject(i);
                 String pkg = o.getString("pkg");
                 if (skip(c, pkg) || o.optString("title", "").trim().isEmpty()) continue;
+                int n = perApp.containsKey(pkg) ? perApp.get(pkg) : 0;
+                if (n >= PER_APP) continue;
+                perApp.put(pkg, n + 1);
                 String name;
                 try {
                     name = String.valueOf(c.getPackageManager().getApplicationLabel(
