@@ -62,7 +62,7 @@ public final class ProtectionChannel {
                             Map<String, Object> t = new HashMap<>();
                             t.put("ads", Stats.get(activity, Stats.ADS));
                             t.put("actions", Stats.get(activity, Stats.ACTIONS));
-                            t.put("adblock", DnsBlockVpnService.isRunning());
+                            t.put("adblock", DnsBlockVpnService.isProtecting(activity));
                             t.put("automation", AutoClickService.isEnabled(activity));
                             Map<String, Object> s = null;
                             try {
@@ -186,14 +186,15 @@ public final class ProtectionChannel {
 
     /** Al abrir el launcher (p. ej. tras reiniciar la tele) vuelve a encender el bloqueo si estaba puesto. */
     public static void resumeIfWanted(Activity a) {
-        if (DnsBlockVpnService.isWanted(a) && !DnsBlockVpnService.isRunning() && VpnService.prepare(a) == null) {
+        if (DnsBlockVpnService.isWanted(a) && !DnsBlockVpnService.isRunning()
+                && DnsBlockVpnService.privateDnsHost(a) == null && VpnService.prepare(a) == null) {
             a.startService(new Intent(a, DnsBlockVpnService.class).setAction(DnsBlockVpnService.ACTION_START));
         }
     }
 
     private Map<String, Object> state() {
         Map<String, Object> m = new HashMap<>();
-        m.put("adblock", DnsBlockVpnService.isRunning());
+        m.put("adblock", DnsBlockVpnService.isProtecting(activity));
         m.put("automation", AutoClickService.isEnabled(activity));
         List<Map<String, Object>> list = new ArrayList<>();
         for (Macros.Macro macro : AutoClickService.load(activity)) {
@@ -266,8 +267,19 @@ public final class ProtectionChannel {
 
     private void setAdblock(boolean on, MethodChannel.Result result) {
         if (!on) {
+            DnsBlockVpnService.setWanted(activity, false);
             activity.startService(new Intent(activity, DnsBlockVpnService.class).setAction(DnsBlockVpnService.ACTION_STOP));
             result.success(false);
+            return;
+        }
+        String pdns = DnsBlockVpnService.privateDnsHost(activity);
+        if (pdns != null) {
+            // Con DNS privado el túnel dejaría la tele sin internet; ese DNS ya bloquea anuncios.
+            DnsBlockVpnService.setWanted(activity, true);
+            android.widget.Toast.makeText(activity, "Esta tele usa DNS privado (" + pdns
+                    + "), que ya bloquea anuncios. Se usa ese en lugar del túnel.",
+                    android.widget.Toast.LENGTH_LONG).show();
+            result.success(true);
             return;
         }
         Intent prepare = VpnService.prepare(activity);

@@ -60,7 +60,7 @@ public class DnsBlockVpnService extends VpnService {
      * automatizaciones cada minuto. Sin pedir nada: solo si el permiso de VPN sigue concedido.
      */
     public static void ensure(Context c) {
-        if (running || !isWanted(c)) return;
+        if (running || !isWanted(c) || privateDnsHost(c) != null) return;
         try {
             if (VpnService.prepare(c) != null) return; // haría falta que la persona lo acepte
             Intent i = new Intent(c, DnsBlockVpnService.class).setAction(ACTION_START);
@@ -84,6 +84,28 @@ public class DnsBlockVpnService extends VpnService {
 
     public static boolean isRunning() {
         return running;
+    }
+
+    /**
+     * Nombre del «DNS privado» (cifrado) que tiene puesto la tele, o null si no usa uno.
+     * Con DNS privado estricto, Android manda TODO el DNS cifrado por la red activa; si el túnel
+     * está encendido esa red es la VPN y la tele se queda sin internet. Además ese DNS (p. ej.
+     * dns.adguard-dns.com) ya bloquea los anuncios, así que el túnel no hace falta.
+     */
+    public static String privateDnsHost(Context c) {
+        try {
+            String mode = android.provider.Settings.Global.getString(c.getContentResolver(), "private_dns_mode");
+            if (!"hostname".equals(mode)) return null;
+            String h = android.provider.Settings.Global.getString(c.getContentResolver(), "private_dns_specifier");
+            return h == null || h.trim().isEmpty() ? null : h.trim();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** ¿Está bloqueando? (el túnel propio, o el DNS privado de la tele si el usuario lo quiere activo). */
+    public static boolean isProtecting(Context c) {
+        return running || (isWanted(c) && privateDnsHost(c) != null);
     }
 
     /** ¿El usuario lo dejó encendido? (para volver a arrancarlo tras reiniciar). */
@@ -131,6 +153,7 @@ public class DnsBlockVpnService extends VpnService {
 
     private synchronized void startBlocking() {
         if (running) return;
+        if (privateDnsHost(this) != null) return; // la tele ya filtra con su DNS privado
         if (blocklist.isEmpty()) blocklist = loadBlocklist();
         ParcelFileDescriptor pfd;
         try {
