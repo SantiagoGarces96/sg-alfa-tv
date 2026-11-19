@@ -893,24 +893,6 @@ Future<void> showInputsMenu(BuildContext context) async {
                                 style: const TextStyle(fontSize: 18),
                               ),
                             ),
-                            if (inputs[i]['passthrough'] == true)
-                              Builder(
-                                builder: (c) {
-                                  final st =
-                                      (inputs[i]['state'] as num?)?.toInt() ??
-                                      0;
-                                  final fg =
-                                      DefaultTextStyle.of(c).style.color ??
-                                      Pro.text;
-                                  return Text(
-                                    st == 2 ? 'Sin conexión' : 'Conectado',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      color: fg.withValues(alpha: 0.6),
-                                    ),
-                                  );
-                                },
-                              ),
                           ],
                         ),
                       ),

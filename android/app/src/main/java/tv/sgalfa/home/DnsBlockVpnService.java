@@ -37,6 +37,8 @@ public class DnsBlockVpnService extends VpnService {
     public static final String ACTION_STOP = "tv.sgalfa.home.ADBLOCK_STOP";
     static final String UPSTREAM = "94.140.14.14";   // AdGuard DNS
     static final String UPSTREAM2 = "94.140.15.15";
+    /** DNS virtual dentro del túnel: las consultas se resuelven con AdGuard DNS por fuera del túnel. */
+    static final String VDNS = "10.111.222.53";
 
     private static final String PREFS = "sgalfa_protection";
     private static final String KEY_WANTED = "adblock_wanted";
@@ -132,16 +134,21 @@ public class DnsBlockVpnService extends VpnService {
         if (blocklist.isEmpty()) blocklist = loadBlocklist();
         ParcelFileDescriptor pfd;
         try {
+            // DNS propio dentro del túnel (10.111.222.53): así NO se capturan las direcciones reales de
+            // AdGuard/Google/Cloudflare y el «DNS privado» cifrado de la tele (puerto 853) sigue funcionando.
+            // Antes se capturaban y, en teles con DNS privado, se quedaban sin internet.
             Builder b = new Builder()
                     .setSession("SG Alfa — bloqueo de anuncios")
                     .addAddress("10.111.222.2", 32)
-                    .addDnsServer(UPSTREAM)
-                    .addDnsServer(UPSTREAM2)
-                    .addRoute(UPSTREAM, 32)
-                    .addRoute(UPSTREAM2, 32)
+                    .addDnsServer(VDNS)
+                    .addRoute(VDNS, 32)
                     .setBlocking(true);
-            // Las apps que llevan su propio DNS (Google, Cloudflare…) tampoco se escapan.
-            for (String ip : HIJACK) b.addRoute(ip, 32);
+            // Las apps que llevan su propio DNS (Google, Cloudflare…) tampoco se escapan,
+            // salvo que la tele use DNS privado (cifrado) con nombre: entonces se respeta.
+            String pdns = android.provider.Settings.Global.getString(getContentResolver(), "private_dns_mode");
+            if (!"hostname".equals(pdns)) {
+                for (String ip : HIJACK) b.addRoute(ip, 32);
+            }
             pfd = b.establish();
         } catch (Exception e) {
             pfd = null;
