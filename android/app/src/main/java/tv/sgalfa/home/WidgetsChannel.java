@@ -290,6 +290,11 @@ public final class WidgetsChannel {
             List<MediaController> list = msm.getActiveSessions(new ComponentName(activity, MediaListener.class));
             MediaController first = null;
             for (MediaController c : list) {
+                // Las entradas de la tele (HDMI, antena) y el Bluetooth dejan sesiones «reproduciendo»
+                // que no son música: no deben tapar lo que suena de verdad.
+                String pkg = c.getPackageName();
+                if ("com.apps.livetv".equals(pkg) || "com.android.bluetooth".equals(pkg)
+                        || "com.android.tv".equals(pkg) || "com.google.android.tv".equals(pkg)) continue;
                 if (first == null) first = c;
                 PlaybackState st = c.getPlaybackState();
                 if (st != null && st.getState() == PlaybackState.STATE_PLAYING) return c;
