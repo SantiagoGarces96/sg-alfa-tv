@@ -18,6 +18,7 @@ import '../core/native.dart';
 import '../core/widgets_model.dart';
 import 'home_widgets.dart';
 import 'nav.dart';
+import 'pro.dart';
 
 double dashUnit(BuildContext context) =>
     MediaQuery.sizeOf(context).width / 1600;
@@ -75,6 +76,8 @@ class DashTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final u = dashUnit(context);
     final today = context.watch<TodayModel>();
+    final inputs = context.watch<WidgetsModel>().inputs;
+    final hasInputs = inputs.isNotEmpty;
     return Nav.arrows(
       down: Nav.belowTopBar,
       child: SizedBox(
@@ -97,15 +100,24 @@ class DashTopBar extends StatelessWidget {
             Positioned(
               left: 803 * u,
               top: 47 * u,
-              width: 425 * u,
+              width: (hasInputs ? 338 : 425) * u,
               height: 82 * u,
               child: _MediaCard(u: u),
             ),
             Positioned(
-              left: 1264 * u,
+              left: (hasInputs ? 1177 : 1264) * u,
               top: 50 * u,
               child: Row(
                 children: [
+                  if (hasInputs) ...[
+                    // Entradas de la tele (HDMI, AV, antena...), al lado del escudo.
+                    _Circle(
+                      u: u,
+                      icon: Icons.input,
+                      onPressed: () => showInputsMenu(context),
+                    ),
+                    SizedBox(width: 17 * u),
+                  ],
                   _Circle(
                     u: u,
                     icon: today.adblock ? Icons.shield : Icons.shield_outlined,
@@ -818,4 +830,98 @@ class _ContinueRowState extends State<_ContinueRow> {
       ),
     );
   }
+}
+
+// ======================================================================= entradas
+
+IconData _inputIcon(int type) => switch (type) {
+  1007 => Icons.settings_input_hdmi,
+  1001 => Icons.settings_input_composite,
+  1004 => Icons.settings_input_component,
+  1005 => Icons.desktop_windows_outlined,
+  0 => Icons.live_tv,
+  _ => Icons.input,
+};
+
+/// Menú de entradas: HDMI 1, HDMI 2, AV, TV digital… y se abre la elegida.
+Future<void> showInputsMenu(BuildContext context) async {
+  final model = context.read<WidgetsModel>();
+  await model.refreshInputs();
+  if (!context.mounted) return;
+  final inputs = model.inputs;
+  final id = await showDialog<String>(
+    context: context,
+    barrierColor: Colors.black54,
+    builder: (ctx) => Dialog(
+      backgroundColor: Pro.bg,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 300, vertical: 40),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 20, 22, 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Entradas', style: Pro.title(26)),
+            const SizedBox(height: 14),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < inputs.length; i++)
+                      ProButton(
+                        autofocus: i == 0,
+                        onPressed: () =>
+                            Navigator.of(ctx).pop('${inputs[i]['id']}'),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _inputIcon(
+                                (inputs[i]['type'] as num?)?.toInt() ?? -1,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Text(
+                                '${inputs[i]['name']}',
+                                style: const TextStyle(fontSize: 18),
+                              ),
+                            ),
+                            if (inputs[i]['passthrough'] == true)
+                              Builder(
+                                builder: (c) {
+                                  final st =
+                                      (inputs[i]['state'] as num?)?.toInt() ??
+                                      0;
+                                  final fg =
+                                      DefaultTextStyle.of(c).style.color ??
+                                      Pro.text;
+                                  return Text(
+                                    st == 2 ? 'Sin conexión' : 'Conectado',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      color: fg.withValues(alpha: 0.6),
+                                    ),
+                                  );
+                                },
+                              ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+  if (id != null) await model.openInput(id);
 }

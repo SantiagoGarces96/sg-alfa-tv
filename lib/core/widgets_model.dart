@@ -45,6 +45,29 @@ class WidgetsModel extends ChangeNotifier with WidgetsBindingObserver {
   Map media = const {};
   List<Map> recent = const [];
 
+  /// Entradas de la tele (HDMI, AV, antena…). Vacío en decos.
+  List<Map> inputs = const [];
+
+  Future<void> refreshInputs() async {
+    try {
+      final r = await Native.widgets.invokeMethod<List>('tvInputs');
+      if (r == null) return;
+      final list = r.whereType<Map>().toList();
+      if (list.toString() != inputs.toString()) {
+        inputs = list;
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
+  Future<bool> openInput(String id) async {
+    try {
+      return await Native.widgets.invokeMethod<bool>('openInput', id) == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Lo que se estaba viendo dentro de cada app (imagen del momento, título y progreso).
   List<Map> watching = const [];
 
@@ -75,6 +98,7 @@ class WidgetsModel extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   void _refreshAll() {
+    refreshInputs();
     refreshMedia();
     refreshRecent();
     if (DateTime.now().difference(_weatherAt).inMinutes >= 30) refreshWeather();

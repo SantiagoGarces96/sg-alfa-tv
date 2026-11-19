@@ -87,6 +87,15 @@ public final class WidgetsChannel {
                     result.success(c != null);
                     break;
                 }
+                case "tvInputs":
+                    io.execute(() -> {
+                        List<Map<String, Object>> r = tvInputs();
+                        main.post(() -> result.success(r));
+                    });
+                    break;
+                case "openInput":
+                    result.success(openInput(call.arguments()));
+                    break;
                 case "openMediaAccess":
                     try {
                         activity.startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
@@ -108,6 +117,97 @@ public final class WidgetsChannel {
                     result.notImplemented();
             }
         });
+    }
+
+    // ------------------------------------------------------------ entradas de la tele
+
+    /** HDMI, AV, antena… tal como las tiene esta tele (en decos no hay ninguna). */
+    private List<Map<String, Object>> tvInputs() {
+        List<Map<String, Object>> out = new ArrayList<>();
+        try {
+            android.media.tv.TvInputManager tim =
+                    (android.media.tv.TvInputManager) activity.getSystemService(Context.TV_INPUT_SERVICE);
+            if (tim == null) return out;
+            List<android.media.tv.TvInputInfo> list = new ArrayList<>(tim.getTvInputList());
+            list.sort((a, b) -> Integer.compare(order(a.getType()), order(b.getType())) != 0
+                    ? Integer.compare(order(a.getType()), order(b.getType())) : a.getId().compareTo(b.getId()));
+            int hdmi = 0;
+            for (android.media.tv.TvInputInfo info : list) {
+                if (info.isHidden(activity)) continue;
+                int type = info.getType();
+                String label = String.valueOf(info.loadLabel(activity)).trim();
+                String name;
+                switch (type) {
+                    case android.media.tv.TvInputInfo.TYPE_HDMI:
+                        hdmi++;
+                        name = label.toUpperCase(java.util.Locale.ROOT).startsWith("HDMI") ? label : "HDMI " + hdmi;
+                        break;
+                    case android.media.tv.TvInputInfo.TYPE_COMPOSITE:
+                        name = "AV";
+                        break;
+                    case android.media.tv.TvInputInfo.TYPE_COMPONENT:
+                        name = "Componente";
+                        break;
+                    case android.media.tv.TvInputInfo.TYPE_VGA:
+                        name = "VGA (PC)";
+                        break;
+                    case android.media.tv.TvInputInfo.TYPE_TUNER:
+                        String id = info.getId().toLowerCase(java.util.Locale.ROOT);
+                        name = id.contains("atv") ? "TV analógica" : (id.contains("dtv") || id.contains("isdb") || id.contains("atsc") ? "TV digital" : (label.isEmpty() ? "TV" : label));
+                        break;
+                    default:
+                        name = label.isEmpty() ? "Entrada" : label;
+                }
+                Map<String, Object> m = new HashMap<>();
+                m.put("id", info.getId());
+                m.put("name", name);
+                m.put("type", type);
+                m.put("passthrough", info.isPassthroughInput());
+                int st = 0;
+                try {
+                    st = tim.getInputState(info.getId());
+                } catch (Exception ignored) {
+                }
+                m.put("state", st); // 0 conectada · 1 en espera · 2 desconectada
+                out.add(m);
+            }
+        } catch (Exception ignored) {
+        }
+        return out;
+    }
+
+    private static int order(int type) {
+        switch (type) {
+            case android.media.tv.TvInputInfo.TYPE_TUNER: return 0;
+            case android.media.tv.TvInputInfo.TYPE_HDMI: return 1;
+            case android.media.tv.TvInputInfo.TYPE_COMPOSITE: return 2;
+            default: return 3;
+        }
+    }
+
+    private boolean openInput(String id) {
+        if (id == null) return false;
+        try {
+            android.media.tv.TvInputManager tim =
+                    (android.media.tv.TvInputManager) activity.getSystemService(Context.TV_INPUT_SERVICE);
+            android.media.tv.TvInputInfo info = tim != null ? tim.getTvInputInfo(id) : null;
+            android.net.Uri uri = info != null && info.isPassthroughInput()
+                    ? android.media.tv.TvContract.buildChannelUriForPassthroughInput(id)
+                    : android.media.tv.TvContract.buildChannelsUriForInput(id);
+            activity.startActivity(new Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            return true;
+        } catch (Exception e) {
+            // Antena sin app que acepte el enlace: abrir la app de TV de la tele.
+            for (String pkg : new String[]{"com.apps.livetv", "com.google.android.tv", "com.android.tv"}) {
+                Intent i = activity.getPackageManager().getLeanbackLaunchIntentForPackage(pkg);
+                if (i == null) i = activity.getPackageManager().getLaunchIntentForPackage(pkg);
+                if (i != null) {
+                    activity.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 
     // ------------------------------------------------------------ continuar viendo
