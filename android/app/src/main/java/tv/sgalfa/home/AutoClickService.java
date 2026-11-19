@@ -356,6 +356,11 @@ public class AutoClickService extends AccessibilityService {
             return;
         }
         if (ContinueOpen.onScreen(this, s.pkg, s.nodes)) return;
+        if (ContinueOpen.active() && !scanQueued) {
+            // Abriendo algo de «Continuar viendo»: volver a mirar aunque la app no avise de cambios.
+            scanQueued = true;
+            handler.postDelayed(queuedScan, 1200);
+        }
         spotAd(s);
         ContinueWatch.onScreen(this, s.pkg, s.nodes);
         long now = SystemClock.uptimeMillis();

@@ -46,6 +46,15 @@ final class ContinueOpen {
     private static volatile String targetPkg;
     private static volatile String targetTitle;
     private static volatile long targetUntil;
+    /** 0: buscar en la primera pantalla · 1: se abrió el historial · 2: se abrió el buscador · 3: se escribió. */
+    private static volatile int stage;
+    private static volatile long stageAt;
+    private static final long STAGE_MS = 4500;
+
+    /** ¿Hay una apertura en curso? (el servicio vuelve a mirar la pantalla cada poco). */
+    static boolean active() {
+        return targetTitle != null && SystemClock.uptimeMillis() < targetUntil;
+    }
 
     /** Desde el launcher (hilo de fondo). Devuelve true si abrió algo. */
     static boolean open(Context c, String pkg, String title, String sub, long posMs) {
@@ -69,6 +78,8 @@ final class ContinueOpen {
             targetPkg = pkg;
             targetTitle = title;
             targetUntil = SystemClock.uptimeMillis() + WAIT_MS;
+            stage = 0;
+            stageAt = SystemClock.uptimeMillis();
         }
         return ok;
     }
@@ -155,6 +166,77 @@ final class ContinueOpen {
         return null;
     }
 
+    // ------------------------------------------------------------ historial y buscador de la app
+
+    private static final Pattern HISTORY_ID = Pattern.compile("(?i).*:id/.*(record|histor|recent|watched|continu).*");
+    private static final Pattern SEARCH_ID = Pattern.compile("(?i).*:id/.*(search|buscar|busca).*");
+
+    /**
+     * El título no está en la primera pantalla: se prueba el historial de la app (WiwyXuper tiene un
+     * reloj arriba) y, si tampoco, su buscador escribiendo el nombre de la serie.
+     */
+    private static boolean nextStage(AccessibilityService svc, String query) {
+        long now = SystemClock.uptimeMillis();
+        AccessibilityNodeInfo root = svc.getRootInActiveWindow();
+        if (root == null) return false;
+        if (stage == 2) {
+            AccessibilityNodeInfo edit = find(root, null, true, 0);
+            if (edit != null) {
+                android.os.Bundle b = new android.os.Bundle();
+                b.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, query);
+                edit.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, b);
+                stage = 3;
+                stageAt = now;
+                return true;
+            }
+        }
+        if (stage == 3 && now - stageAt > 2500 && android.os.Build.VERSION.SDK_INT >= 30) {
+            // Si la app no busca sola al escribir, se pulsa «Intro» del teclado.
+            AccessibilityNodeInfo edit = find(root, null, true, 0);
+            stage = 4;
+            stageAt = now;
+            if (edit != null) edit.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.getId());
+            return false;
+        }
+        if (now - stageAt < STAGE_MS) return false;
+        if (stage == 0) {
+            stage = 1;
+            stageAt = now;
+            AccessibilityNodeInfo h = find(root, HISTORY_ID, false, 0);
+            if (h != null && click(h)) return true;
+        }
+        if (stage == 1) {
+            stage = 2;
+            stageAt = now;
+            AccessibilityNodeInfo s = find(root, SEARCH_ID, false, 0);
+            if (s != null && click(s)) return true;
+        }
+        return false;
+    }
+
+    private static boolean click(AccessibilityNodeInfo n) {
+        for (int i = 0; i < 4 && n != null; i++) {
+            if (n.isClickable() && n.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true;
+            n = n.getParent();
+        }
+        return false;
+    }
+
+    /** Primer nodo visible cuyo id encaja (o el primer cuadro de texto editable). */
+    private static AccessibilityNodeInfo find(AccessibilityNodeInfo n, Pattern id, boolean editable, int depth) {
+        if (n == null || depth > 30) return null;
+        if (n.isVisibleToUser()) {
+            if (editable && n.isEditable()) return n;
+            String vid = n.getViewIdResourceName();
+            if (!editable && id != null && vid != null && id.matcher(vid).matches()) return n;
+        }
+        for (int i = 0; i < n.getChildCount(); i++) {
+            AccessibilityNodeInfo r = find(n.getChild(i), id, editable, depth + 1);
+            if (r != null) return r;
+        }
+        return null;
+    }
+
     // ------------------------------------------------------------ toque en pantalla (apps sin enlaces)
 
     /**
@@ -173,6 +255,7 @@ final class ContinueOpen {
         AccessibilityNodeInfo best = null;
         int bestScore = 0;
         for (AccessibilityNodeInfo n : nodes) {
+            if (n.isEditable()) continue; // el cuadro de búsqueda con lo que escribimos no cuenta
             CharSequence cs = n.getText();
             if (cs == null || cs.length() == 0) cs = n.getContentDescription();
             if (cs == null) continue;
@@ -196,7 +279,12 @@ final class ContinueOpen {
                 best = n;
             }
         }
-        if (best == null) return false;
+        if (best == null) {
+            // Para el buscador: sin símbolos delante ni «Season 7 / Temporada 2» detrás.
+            String q = ContinueWatch.series(want).replaceAll("^[^\\p{L}\\p{N}]+", "")
+                    .replaceAll("(?i)\\s*(season|temporada|t)\\s*\\d+\\s*$", "").trim();
+            return nextStage(svc, q.isEmpty() ? want : q);
+        }
         AccessibilityNodeInfo n = best;
         for (int i = 0; i < 6 && n != null; i++) {
             if (n.isClickable()) {
