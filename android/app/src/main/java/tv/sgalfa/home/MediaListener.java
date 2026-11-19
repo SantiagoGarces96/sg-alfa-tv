@@ -69,6 +69,7 @@ public class MediaListener extends NotificationListenerService {
     @Override
     public void onListenerDisconnected() {
         unmute();
+        releaseWake();
         try {
             if (msm != null) msm.removeOnActiveSessionsChangedListener(changed);
         } catch (Exception ignored) {
@@ -102,6 +103,7 @@ public class MediaListener extends NotificationListenerService {
                     public void onPlaybackStateChanged(PlaybackState state) {
                         if (state != null && state.getState() != PlaybackState.STATE_PLAYING) unmute();
                         if (state != null && state.getState() == PlaybackState.STATE_PLAYING) save(c);
+                        updateWake();
                     }
                 };
                 try {
@@ -125,6 +127,7 @@ public class MediaListener extends NotificationListenerService {
         boolean anyAd = false;
         for (MediaController c : list) if (isSpotifyAd(c)) anyAd = true;
         if (!anyAd) unmute();
+        updateWake();
     }
 
     // ------------------------------------------------------------ anuncios de Spotify: silenciar
@@ -173,6 +176,48 @@ public class MediaListener extends NotificationListenerService {
         } catch (Exception ignored) {
         }
         mutedByUs = false;
+    }
+
+    // ------------------------------------------------------------ no dormirse con música
+
+    private android.os.PowerManager.WakeLock wake;
+
+    /**
+     * Android no cuenta la música como «uso» y el equipo se duerme a los 15 min sin tocar el control,
+     * pausando Spotify o TizenTube. Mientras algo suena se mantiene despierto; al parar vuelve su
+     * reposo normal. Sin cambiar ajustes del sistema.
+     */
+    private void updateWake() {
+        boolean playing = false;
+        for (MediaSession_Token k : callbacks.keySet()) {
+            try {
+                PlaybackState st = k.controller.getPlaybackState();
+                if (st != null && st.getState() == PlaybackState.STATE_PLAYING) playing = true;
+            } catch (Exception ignored) {
+            }
+        }
+        if (playing) {
+            try {
+                if (wake == null) {
+                    android.os.PowerManager pm = (android.os.PowerManager) getSystemService(POWER_SERVICE);
+                    @SuppressWarnings("deprecation")
+                    int flags = android.os.PowerManager.SCREEN_BRIGHT_WAKE_LOCK | android.os.PowerManager.ON_AFTER_RELEASE;
+                    wake = pm.newWakeLock(flags, "sgalfa:musica");
+                    wake.setReferenceCounted(false);
+                }
+                wake.acquire(4L * 60 * 60 * 1000); // como mucho 4 h seguidas por seguridad
+            } catch (Exception ignored) {
+            }
+        } else {
+            releaseWake();
+        }
+    }
+
+    private void releaseWake() {
+        try {
+            if (wake != null && wake.isHeld()) wake.release();
+        } catch (Exception ignored) {
+        }
     }
 
     static boolean skip(String pkg) {
