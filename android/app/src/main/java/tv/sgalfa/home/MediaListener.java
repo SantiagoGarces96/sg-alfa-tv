@@ -138,6 +138,10 @@ public class MediaListener extends NotificationListenerService {
             PlaybackState st = c.getPlaybackState();
             long pos = st != null ? st.getPosition() : 0;
             String pkg = c.getPackageName();
+            if (st != null && st.getState() == PlaybackState.STATE_PLAYING) {
+                ContinueWatch.onMedia(this, pkg, title, artist, Math.max(0, pos),
+                        md.getLong(MediaMetadata.METADATA_KEY_DURATION));
+            }
             android.content.SharedPreferences p = getSharedPreferences(LAST, MODE_PRIVATE);
             android.content.SharedPreferences.Editor e = p.edit()
                     .putString("package", pkg)

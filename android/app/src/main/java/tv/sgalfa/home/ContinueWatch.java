@@ -244,7 +244,9 @@ final class ContinueWatch {
         }
         Long tAt = lastTitleAt.get(pkg);
         String remembered = tAt != null && now - tAt < REMEMBER_MS ? lastTitle.get(pkg) : null;
-        if (score(remembered) > score(title)) title = remembered;
+        // Si la app dice qué suena (TizenTube, YouTube…), eso manda: lo leído en pantalla puede ser
+        // el vídeo anterior. Lo de pantalla solo se usa si la sesión no trae un título útil.
+        if (!sessionTitle(svc, pkg, title) && score(remembered) > score(title)) title = remembered;
         // Sin «Episodio»: el canal o vídeo del reproductor, o lo que se eligió en la app hace poco.
         if (title == null || title.trim().isEmpty()) {
             String s = tAt != null && now - tAt < REMEMBER_MS ? strong.get(pkg) : null;
@@ -285,6 +287,27 @@ final class ContinueWatch {
             }
         }
         worker.execute(() -> save(svc, pkg, fTitle, fSub, fPos, fDur, null));
+    }
+
+    /** ¿Es un título de verdad (no vacío ni el nombre de la app)? */
+    static boolean sessionTitle(Context c, String pkg, String title) {
+        if (title == null || !good(title)) return false;
+        try {
+            android.content.pm.PackageManager pm = c.getPackageManager();
+            String label = String.valueOf(pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0))).trim();
+            if (title.trim().equalsIgnoreCase(label)) return false;
+        } catch (Exception ignored) {
+        }
+        return true;
+    }
+
+    /**
+     * Lo llama MediaListener cuando una app cambia de canción o vídeo, aunque no haya eventos en
+     * pantalla: la tarjeta pasa al momento al vídeo nuevo (la imagen llega con la siguiente captura).
+     */
+    static void onMedia(Context c, String pkg, String title, String sub, long pos, long dur) {
+        if (skip(c, pkg) || !sessionTitle(c, pkg, title)) return;
+        worker.execute(() -> save(c, pkg, title, sub, pos, dur, null));
     }
 
     private static MediaController session(Context c, String pkg) {
