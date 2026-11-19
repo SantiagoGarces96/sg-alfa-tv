@@ -4,6 +4,7 @@
  */
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -71,6 +72,35 @@ class AppsModel extends ChangeNotifier {
 
   bool isFavorite(String pkg) => _favorites.contains(pkg);
 
+  /// Números del control (solo en el inicio): número → paquete elegido por la persona.
+  /// Sin elegir: el 1 abre la 1.ª app del dock, el 2 la 2.ª… y el 0 la 10.ª.
+  Map<String, String> _numberKeys = {};
+
+  Map<String, String> get numberKeys => Map.unmodifiable(_numberKeys);
+
+  TvApp? appForDigit(int d) {
+    final custom = _numberKeys['$d'];
+    if (custom != null) {
+      final a = byPackage(custom);
+      if (a != null && !_hidden.contains(a.package)) return a;
+    }
+    final i = d == 0 ? 9 : d - 1;
+    final favs = favorites;
+    return i < favs.length ? favs[i] : null;
+  }
+
+  /// pkg = null: volver al automático (orden del dock).
+  Future<void> setNumberKey(int d, String? pkg) async {
+    if (pkg == null) {
+      _numberKeys.remove('$d');
+    } else {
+      _numberKeys['$d'] = pkg;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('number_keys', jsonEncode(_numberKeys));
+    notifyListeners();
+  }
+
   TvApp? byPackage(String pkg) {
     for (final a in _all) {
       if (a.package == pkg) return a;
@@ -82,6 +112,10 @@ class AppsModel extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _favorites = prefs.getStringList(_kFavorites) ?? [];
     _hidden = (prefs.getStringList(_kHidden) ?? []).toSet();
+    try {
+      final raw = prefs.getString('number_keys');
+      if (raw != null) _numberKeys = (jsonDecode(raw) as Map).map((k, v) => MapEntry('$k', '$v'));
+    } catch (_) {}
     await refresh();
     if (!(prefs.getBool(_kSeeded) ?? false)) {
       final installed = _all.map((a) => a.package).toSet();

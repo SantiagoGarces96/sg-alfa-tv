@@ -303,6 +303,13 @@ class _MainPage extends StatelessWidget {
         onTap: () => Navigator.of(context).push(_route(const _HiddenPage())),
       ),
       _Row(
+        icon: Icons.dialpad,
+        title: 'Números del control',
+        subtitle: 'En el inicio, cada número abre una app',
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(context).push(_route(const _NumbersPage())),
+      ),
+      _Row(
         icon: Icons.settings,
         title: context.watch<DeviceModel>().isTv ? 'Ajustes de la tele' : 'Ajustes del deco',
         onTap: Native.openSystemSettings,
@@ -420,6 +427,68 @@ class _ProtectionPageState extends State<_ProtectionPage> {
         'Si usas otra VPN (AdGuard, Blokada…), apágala antes: solo puede haber una a la vez.',
         style: Pro.body(14, color: Pro.text.withValues(alpha: 0.85), weight: FontWeight.w500),
       ),
+    ]);
+  }
+}
+
+/// Qué app abre cada número del control (en el inicio).
+class _NumbersPage extends StatelessWidget {
+  const _NumbersPage();
+
+  @override
+  Widget build(BuildContext context) {
+    final apps = context.watch<AppsModel>();
+    const digits = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
+    return _Page(title: 'NÚMEROS DEL CONTROL', children: [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Text('Pulsa un número del control en el inicio y se abre su app. Sin elegir, sigue el orden del dock.',
+            style: Pro.body(15, color: Pro.sub)),
+      ),
+      for (var i = 0; i < digits.length; i++)
+        _Row(
+          autofocus: i == 0,
+          icon: Icons.dialpad,
+          title: 'Número ${digits[i]}',
+          subtitle: apps.appForDigit(digits[i])?.label ?? 'Sin app',
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.of(context).push(_route(_PickAppPage(digit: digits[i]))),
+        ),
+    ]);
+  }
+}
+
+class _PickAppPage extends StatelessWidget {
+  final int digit;
+
+  const _PickAppPage({required this.digit});
+
+  @override
+  Widget build(BuildContext context) {
+    final apps = context.watch<AppsModel>();
+    final list = [...apps.favorites, ...apps.others];
+    final current = apps.numberKeys['$digit'];
+    return _Page(title: 'NÚMERO $digit', children: [
+      _Row(
+        autofocus: true,
+        icon: Icons.auto_awesome,
+        title: 'Automático (orden del dock)',
+        subtitle: current == null ? 'Elegido' : null,
+        onTap: () {
+          apps.setNumberKey(digit, null);
+          Navigator.of(context).pop();
+        },
+      ),
+      for (final a in list)
+        _Row(
+          icon: Icons.apps,
+          title: a.label,
+          subtitle: current == a.package ? 'Elegido' : null,
+          onTap: () {
+            apps.setNumberKey(digit, a.package);
+            Navigator.of(context).pop();
+          },
+        ),
     ]);
   }
 }
