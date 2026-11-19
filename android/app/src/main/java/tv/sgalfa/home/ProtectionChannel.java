@@ -39,8 +39,21 @@ public final class ProtectionChannel {
                         setAdblock(Boolean.TRUE.equals(call.arguments), result);
                         break;
                     case "openAccessibilitySettings":
-                        activity.startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                        // Algunos decos (ARRIS ONEtv) no traen el atajo directo a Accesibilidad:
+                        // entonces se abren los Ajustes y se indica el camino.
+                        try {
+                            activity.startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                        } catch (Exception e) {
+                            try {
+                                activity.startActivity(new Intent(Settings.ACTION_SETTINGS)
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                            } catch (Exception ignored) {
+                            }
+                            android.widget.Toast.makeText(activity,
+                                    "Ve a Preferencias del dispositivo → Accesibilidad → «SG Alfa · Automatizaciones» y actívalo",
+                                    android.widget.Toast.LENGTH_LONG).show();
+                        }
                         result.success(true);
                         break;
                     case "getToday": {

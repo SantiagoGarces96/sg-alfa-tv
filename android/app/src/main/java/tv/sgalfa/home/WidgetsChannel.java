@@ -93,6 +93,14 @@ public final class WidgetsChannel {
                                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
                         result.success(true);
                     } catch (Exception e) {
+                        try {
+                            activity.startActivity(new Intent(Settings.ACTION_SETTINGS)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                        } catch (Exception ignored) {
+                        }
+                        android.widget.Toast.makeText(activity,
+                                "Ve a Aplicaciones → Acceso especial → Acceso a notificaciones → «SG Alfa · Sonando ahora»",
+                                android.widget.Toast.LENGTH_LONG).show();
                         result.success(false);
                     }
                     break;
