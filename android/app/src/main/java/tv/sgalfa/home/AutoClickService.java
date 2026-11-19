@@ -51,7 +51,18 @@ public class AutoClickService extends AccessibilityService {
     static List<Macros.Macro> load(Context c) {
         String json = c.getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_MACROS, null);
         List<Macros.Macro> list = Macros.decodeOrNull(json);
-        return list != null ? list : new ArrayList<>(Macros.templates());
+        if (list == null) return new ArrayList<>(Macros.templates());
+        // Una sola vez: añadir el reintento automático de «sin conexión al encender» a quien ya tenía su lista.
+        SharedPreferences p = c.getSharedPreferences(PREFS, MODE_PRIVATE);
+        if (!p.getBoolean("retry_added", false)) {
+            java.util.Set<String> have = new java.util.HashSet<>();
+            for (Macros.Macro m : list) have.add(m.id);
+            for (Macros.Macro m : Macros.templates()) {
+                if ((m.id.equals("tpl-retry") || m.id.equals("tpl-reintentar")) && !have.contains(m.id)) list.add(m);
+            }
+            p.edit().putString(KEY_MACROS, Macros.encode(list)).putBoolean("retry_added", true).apply();
+        }
+        return list;
     }
 
     static void save(Context c, List<Macros.Macro> list) {

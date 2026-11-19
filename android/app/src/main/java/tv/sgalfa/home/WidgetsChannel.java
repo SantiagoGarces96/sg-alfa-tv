@@ -182,6 +182,17 @@ public final class WidgetsChannel {
             }
         } catch (Exception ignored) {
         }
+        // «Entradas» es solo para televisores: un deco no tiene HDMI/AV de entrada (a lo sumo apps de
+        // IPTV que registran canales). Sin una entrada física, no se muestra el botón.
+        boolean physical = false;
+        for (Map<String, Object> m : out) {
+            int t = (Integer) m.get("type");
+            if (t == android.media.tv.TvInputInfo.TYPE_HDMI || t == android.media.tv.TvInputInfo.TYPE_COMPOSITE
+                    || t == android.media.tv.TvInputInfo.TYPE_COMPONENT || t == android.media.tv.TvInputInfo.TYPE_VGA
+                    || t == android.media.tv.TvInputInfo.TYPE_SCART || t == android.media.tv.TvInputInfo.TYPE_SVIDEO
+                    || t == android.media.tv.TvInputInfo.TYPE_DVI) physical = true;
+        }
+        if (!physical) out.clear();
         return out;
     }
 

@@ -227,6 +227,12 @@ public final class Macros {
                         Arrays.asList("valora", "califica", "puntúa", "puntua", "reseña", "rate this app")),
                 button("tpl-actualizar", "Aviso de actualización → Más tarde", "Más tarde",
                         Arrays.asList("actualiza", "nueva versión", "nueva version", "update available")),
+                // Al encender la tele, apps como TizenTube abren antes de que el wifi conecte y se quedan
+                // en «Can't connect right now». Se reintenta solo (cada pocos segundos) hasta que haya internet.
+                new Macro("tpl-retry", "Sin conexión al encender → Try again (TizenTube)", true, "BUTTON",
+                        "Try again", Arrays.asList("can't connect", "cant connect", "connect right now"), "CLICK", "", 4),
+                new Macro("tpl-reintentar", "Sin conexión al encender → Reintentar", true, "BUTTON",
+                        "Reintentar", Arrays.asList("no se puede conectar", "sin conexión", "sin conexion"), "CLICK", "", 4),
                 button("tpl-saltar-corto", "Anuncio con «Saltar» → Saltar", "Saltar",
                         Arrays.asList("anuncio", "publicidad", "advertisement")),
                 new Macro("tpl-siguiente", "Siguiente episodio (apagada: actívala si quieres maratón)", false,
