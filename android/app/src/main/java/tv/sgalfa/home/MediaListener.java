@@ -68,6 +68,7 @@ public class MediaListener extends NotificationListenerService {
 
     @Override
     public void onListenerDisconnected() {
+        unmute();
         try {
             if (msm != null) msm.removeOnActiveSessionsChangedListener(changed);
         } catch (Exception ignored) {
@@ -93,11 +94,13 @@ public class MediaListener extends NotificationListenerService {
                 cb = new MediaController.Callback() {
                     @Override
                     public void onMetadataChanged(MediaMetadata metadata) {
+                        checkAd(c);
                         save(c);
                     }
 
                     @Override
                     public void onPlaybackStateChanged(PlaybackState state) {
+                        if (state != null && state.getState() != PlaybackState.STATE_PLAYING) unmute();
                         if (state != null && state.getState() == PlaybackState.STATE_PLAYING) save(c);
                     }
                 };
@@ -107,6 +110,7 @@ public class MediaListener extends NotificationListenerService {
                 }
             }
             keep.put(k, cb);
+            checkAd(c);
             save(c);
         }
         for (Map.Entry<MediaSession_Token, MediaController.Callback> e : callbacks.entrySet()) {
@@ -117,6 +121,58 @@ public class MediaListener extends NotificationListenerService {
         }
         callbacks.clear();
         callbacks.putAll(keep);
+        // Si la sesión del anuncio desaparece, que no se quede la tele muda.
+        boolean anyAd = false;
+        for (MediaController c : list) if (isSpotifyAd(c)) anyAd = true;
+        if (!anyAd) unmute();
+    }
+
+    // ------------------------------------------------------------ anuncios de Spotify: silenciar
+
+    private static boolean mutedByUs = false;
+
+    /** Anuncio de audio de Spotify: su sesión lo marca (id «spotify:ad:…» o título «Advertisement»). */
+    static boolean isSpotifyAd(MediaController c) {
+        if (c.getPackageName() == null || !c.getPackageName().startsWith("com.spotify")) return false;
+        MediaMetadata md = c.getMetadata();
+        if (md == null) return false;
+        String id = md.getString(MediaMetadata.METADATA_KEY_MEDIA_ID);
+        if (id != null && id.contains(":ad:")) return true;
+        String title = md.getString(MediaMetadata.METADATA_KEY_TITLE);
+        if (title == null) return false;
+        String t = title.trim().toLowerCase(java.util.Locale.ROOT);
+        return t.equals("advertisement") || t.equals("anuncio") || t.equals("publicidad")
+                || t.equals("spotify") || t.startsWith("advertisement ·") || t.startsWith("anuncio ·");
+    }
+
+    /** Mientras suena un anuncio de Spotify la tele se queda en silencio; vuelve el sonido con la música. */
+    private void checkAd(MediaController c) {
+        try {
+            if (c.getPackageName() == null || !c.getPackageName().startsWith("com.spotify")) return;
+            android.media.AudioManager am = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+            if (isSpotifyAd(c)) {
+                if (!mutedByUs) {
+                    am.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC,
+                            android.media.AudioManager.ADJUST_MUTE, 0);
+                    mutedByUs = true;
+                    Stats.add(this, Stats.ADS);
+                }
+            } else {
+                unmute();
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void unmute() {
+        if (!mutedByUs) return;
+        try {
+            android.media.AudioManager am = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+            am.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC,
+                    android.media.AudioManager.ADJUST_UNMUTE, 0);
+        } catch (Exception ignored) {
+        }
+        mutedByUs = false;
     }
 
     static boolean skip(String pkg) {
@@ -126,6 +182,7 @@ public class MediaListener extends NotificationListenerService {
 
     /** Guarda la canción actual en el mismo formato que usa la tarjeta (WidgetsChannel). */
     private void save(MediaController c) {
+        if (isSpotifyAd(c)) return;
         try {
             MediaMetadata md = c.getMetadata();
             if (md == null) return;

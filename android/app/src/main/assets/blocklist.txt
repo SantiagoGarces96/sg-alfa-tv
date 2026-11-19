@@ -117,3 +117,9 @@ cloudflare-dns.com
 dns.quad9.net
 doh.opendns.com
 dns.nextdns.io
+# Spotify: anuncios y seguimiento (la música y el inicio de sesión siguen funcionando)
+adeventtracker.spotify.com
+ads-fa.spotify.com
+analytics.spotify.com
+crashdump.spotify.com
+log.spotify.com
