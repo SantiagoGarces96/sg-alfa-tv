@@ -80,11 +80,33 @@ final class ContinueWatch {
         return pkg != null && (pkg.startsWith("com.spotify") || pkg.equals("com.google.android.youtube.tvmusic")
                 || pkg.equals("com.google.android.apps.youtube.music") || pkg.startsWith("deezer.android")
                 || pkg.startsWith("com.amazon.mp3") || pkg.startsWith("com.aspiro.tidal")
-                || pkg.startsWith("com.soundcloud"));
+                || pkg.startsWith("com.soundcloud") || pkg.startsWith("com.pandora")
+                || pkg.startsWith("com.apple.android.music") || pkg.startsWith("tunein.player")
+                || pkg.startsWith("radiotime.player") || pkg.startsWith("com.audiomack")
+                || pkg.startsWith("com.anghami") || pkg.startsWith("com.iheartradio")
+                || pkg.startsWith("com.qobuz") || pkg.startsWith("com.napster"));
+    }
+
+    private static final Map<String, Boolean> audioCache = new HashMap<>();
+
+    /** Cualquier reproductor de música: Android lo marca con la categoría «Audio». */
+    static boolean audioApp(Context c, String pkg) {
+        if (pkg == null || android.os.Build.VERSION.SDK_INT < 26) return false;
+        Boolean v = audioCache.get(pkg);
+        if (v != null) return v;
+        boolean audio = false;
+        try {
+            audio = c.getPackageManager().getApplicationInfo(pkg, 0).category
+                    == android.content.pm.ApplicationInfo.CATEGORY_AUDIO;
+        } catch (Exception ignored) {
+        }
+        audioCache.put(pkg, audio);
+        return audio;
     }
 
     static boolean skip(Context c, String pkg) {
-        return pkg == null || pkg.equals(c.getPackageName()) || SKIP.contains(pkg) || musicOnly(pkg);
+        return pkg == null || pkg.equals(c.getPackageName()) || SKIP.contains(pkg) || musicOnly(pkg)
+                || audioApp(c, pkg);
     }
 
     /**
