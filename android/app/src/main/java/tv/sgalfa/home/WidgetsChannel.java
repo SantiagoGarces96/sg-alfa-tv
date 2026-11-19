@@ -96,6 +96,19 @@ public final class WidgetsChannel {
                     result.success(c != null);
                     break;
                 }
+                case "openContinue": {
+                    // «Continuar viendo»: abrir el contenido exacto (vídeo de YouTube o el título dentro de la app).
+                    Map<String, Object> a = call.arguments();
+                    String pkg = String.valueOf(a.get("package"));
+                    String title = a.get("title") instanceof String ? (String) a.get("title") : null;
+                    String sub = a.get("sub") instanceof String ? (String) a.get("sub") : null;
+                    long pos = a.get("pos") instanceof Number ? ((Number) a.get("pos")).longValue() : -1;
+                    io.execute(() -> {
+                        boolean ok = ContinueOpen.open(activity, pkg, title, sub, pos);
+                        main.post(() -> result.success(ok));
+                    });
+                    break;
+                }
                 case "tvInputs":
                     io.execute(() -> {
                         List<Map<String, Object>> r = tvInputs();

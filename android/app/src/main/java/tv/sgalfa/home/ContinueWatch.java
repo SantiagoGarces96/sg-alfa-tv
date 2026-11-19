@@ -87,6 +87,14 @@ final class ContinueWatch {
             "mTvChannel", "mTvVideoTitle", "mTvVideoName", "mTvMovieName", "mTvMovieTitle", "mTvPlayTitle", "mTvName",
             "video_title", "videoTitle", "movie_title", "player_title", "exo_title", "tv_title", "tvTitle", "title_text"};
 
+    /** ¿Es uno de los campos donde el reproductor pone el título (ya se está viendo)? */
+    static boolean isPlayerTitleId(String id) {
+        int slash = id.indexOf(":id/");
+        String name = slash >= 0 ? id.substring(slash + 4) : id;
+        for (String t : TITLE_IDS) if (name.equalsIgnoreCase(t)) return true;
+        return false;
+    }
+
     /** Título leído de los campos del reproductor (lo más fiable cuando la app no dice «Episodio»). */
     static String titleFromIds(List<AccessibilityNodeInfo> nodes) {
         String best = null;

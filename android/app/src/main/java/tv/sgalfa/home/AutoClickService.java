@@ -355,6 +355,7 @@ public class AutoClickService extends AccessibilityService {
             cleaner.onScreen(s.pkg, getRootInActiveWindow(), s.nodes, s.screen);
             return;
         }
+        if (ContinueOpen.onScreen(this, s.pkg, s.nodes)) return;
         spotAd(s);
         ContinueWatch.onScreen(this, s.pkg, s.nodes);
         long now = SystemClock.uptimeMillis();

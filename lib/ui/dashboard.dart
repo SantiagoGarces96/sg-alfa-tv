@@ -670,7 +670,20 @@ class _ContinueCardState extends State<_ContinueCard> {
     return _Focusable(
       onFocused: widget.onFocused,
       focusNode: widget.focusNode,
-      onPressed: () => Native.launch('${it['package']}'),
+      // Abre lo que se estaba viendo (no solo la app); si no se puede, abre la app.
+      onPressed: () async {
+        bool ok = false;
+        try {
+          ok = await Native.widgets.invokeMethod<bool>('openContinue', {
+                'package': '${it['package']}',
+                'title': it['title'],
+                'sub': it['sub'],
+                'pos': it['pos'],
+              }) ??
+              false;
+        } catch (_) {}
+        if (!ok) Native.launch('${it['package']}');
+      },
       builder: (f) => Container(
         width: 338 * u,
         height: 92 * u,
