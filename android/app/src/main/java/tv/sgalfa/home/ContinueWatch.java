@@ -75,8 +75,16 @@ final class ContinueWatch {
             "com.android.packageinstaller", "com.google.android.packageinstaller", "com.google.android.permissioncontroller",
             "com.android.vending", "com.google.android.katniss", "com.google.android.leanbacklauncher"));
 
+    /** Apps solo de música: ya salen arriba en «lo que suena», no en «Continuar viendo». */
+    static boolean musicOnly(String pkg) {
+        return pkg != null && (pkg.startsWith("com.spotify") || pkg.equals("com.google.android.youtube.tvmusic")
+                || pkg.equals("com.google.android.apps.youtube.music") || pkg.startsWith("deezer.android")
+                || pkg.startsWith("com.amazon.mp3") || pkg.startsWith("com.aspiro.tidal")
+                || pkg.startsWith("com.soundcloud"));
+    }
+
     static boolean skip(Context c, String pkg) {
-        return pkg == null || pkg.equals(c.getPackageName()) || SKIP.contains(pkg);
+        return pkg == null || pkg.equals(c.getPackageName()) || SKIP.contains(pkg) || musicOnly(pkg);
     }
 
     /**
