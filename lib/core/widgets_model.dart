@@ -94,8 +94,21 @@ class WidgetsModel extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _refreshAll();
+    if (state == AppLifecycleState.resumed) {
+      _freeTimer?.cancel();
+      _refreshAll();
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+      // Teles con poca memoria (1,5 GB): si el launcher lleva un minuto oculto (viendo TizenTube,
+      // una película…) suelta las imágenes en memoria para que esa app no se cierre por falta de RAM.
+      _freeTimer?.cancel();
+      _freeTimer = Timer(const Duration(minutes: 1), () {
+        PaintingBinding.instance.imageCache.clear();
+        PaintingBinding.instance.imageCache.clearLiveImages();
+      });
+    }
   }
+
+  Timer? _freeTimer;
 
   void _refreshAll() {
     refreshInputs();
