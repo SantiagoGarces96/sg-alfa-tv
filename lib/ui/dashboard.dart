@@ -303,7 +303,11 @@ class _MediaCard extends StatelessWidget {
     final m = w.media;
     final access = m['access'] == true;
     final title = m['title'] as String?;
-    final artist = m['artist'] as String?;
+    final resume = m['resume'] == true;
+    // Si la app se pausó al salir (TizenTube), se muestra en pausa y ▶ vuelve a abrirla.
+    final artist = resume
+        ? (m['app'] != null ? '${m['app']} · en pausa' : 'En pausa')
+        : m['artist'] as String?;
     final art = m['art'] as Uint8List?;
     final playing = m['playing'] == true;
     final dur = (m['duration'] as num?)?.toDouble() ?? 0;

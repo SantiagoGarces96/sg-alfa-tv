@@ -75,7 +75,16 @@ public final class WidgetsChannel {
                 case "mediaCmd": {
                     String cmd = call.arguments();
                     MediaController c = controller();
-                    if (c != null) {
+                    if (c == null || c.getMetadata() == null) {
+                        // Nada sonando: si hay una canción guardada (p. ej. TizenTube se pausó al salir),
+                        // cualquier botón vuelve a abrir esa app para seguir escuchando.
+                        boolean ok = resumeLast();
+                        if (ok || c == null) {
+                            result.success(ok);
+                            break;
+                        }
+                    }
+                    {
                         MediaController.TransportControls t = c.getTransportControls();
                         PlaybackState st = c.getPlaybackState();
                         boolean playing = st != null && st.getState() == PlaybackState.STATE_PLAYING;
@@ -318,7 +327,7 @@ public final class WidgetsChannel {
         m.put("access", access);
         if (!access) return m;
         MediaController c = controller();
-        if (c == null) return m;
+        if (c == null || c.getMetadata() == null) return lastMedia(m);
         MediaMetadata md = c.getMetadata();
         PlaybackState st = c.getPlaybackState();
         m.put("package", c.getPackageName());
@@ -354,6 +363,83 @@ public final class WidgetsChannel {
             }
             m.put("position", pos);
         }
+        saveLast(m);
         return m;
+    }
+
+    // ------------------------------------------------------------ última canción (reanudar)
+    // Apps como TizenTube detienen el video al ir al inicio y su sesión desaparece. Se guarda lo
+    // último que sonó para mostrarlo «en pausa» y poder volver a la app con un botón.
+
+    private static final String LAST = "sgalfa_last_media";
+    private static final long LAST_MAX_AGE = 12L * 60 * 60 * 1000; // medio día
+
+    private void saveLast(Map<String, Object> m) {
+        Object title = m.get("title");
+        Object pkg = m.get("package");
+        if (!(title instanceof String) || ((String) title).isEmpty() || !(pkg instanceof String)) return;
+        android.content.SharedPreferences p = activity.getSharedPreferences(LAST, Context.MODE_PRIVATE);
+        android.content.SharedPreferences.Editor e = p.edit()
+                .putString("package", (String) pkg)
+                .putString("title", (String) title)
+                .putString("artist", m.get("artist") instanceof String ? (String) m.get("artist") : null)
+                .putLong("duration", m.get("duration") instanceof Long ? (Long) m.get("duration") : 0)
+                .putLong("position", m.get("position") instanceof Long ? (Long) m.get("position") : 0)
+                .putLong("at", System.currentTimeMillis());
+        String key = pkg + "|" + title;
+        if (!key.equals(p.getString("key", null))) {
+            e.putString("key", key);
+            Object art = m.get("art");
+            e.putString("art", art instanceof byte[]
+                    ? android.util.Base64.encodeToString((byte[]) art, android.util.Base64.NO_WRAP) : null);
+        }
+        e.apply();
+    }
+
+    private Intent launchFor(String pkg) {
+        android.content.pm.PackageManager pm = activity.getPackageManager();
+        Intent i = pm.getLeanbackLaunchIntentForPackage(pkg);
+        if (i == null) i = pm.getLaunchIntentForPackage(pkg);
+        return i;
+    }
+
+    private Map<String, Object> lastMedia(Map<String, Object> m) {
+        try {
+            android.content.SharedPreferences p = activity.getSharedPreferences(LAST, Context.MODE_PRIVATE);
+            String pkg = p.getString("package", null);
+            String title = p.getString("title", null);
+            if (pkg == null || title == null) return m;
+            if (System.currentTimeMillis() - p.getLong("at", 0) > LAST_MAX_AGE) return m;
+            if (launchFor(pkg) == null) return m;
+            m.put("package", pkg);
+            m.put("title", title);
+            m.put("artist", p.getString("artist", null));
+            m.put("duration", p.getLong("duration", 0));
+            m.put("position", p.getLong("position", 0));
+            String art = p.getString("art", null);
+            if (art != null) m.put("art", android.util.Base64.decode(art, android.util.Base64.NO_WRAP));
+            m.put("playing", false);
+            m.put("resume", true);
+            try {
+                android.content.pm.PackageManager pm = activity.getPackageManager();
+                m.put("app", pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString());
+            } catch (Exception ignored) {
+            }
+        } catch (Exception ignored) {
+        }
+        return m;
+    }
+
+    private boolean resumeLast() {
+        Map<String, Object> m = lastMedia(new HashMap<>());
+        if (m.get("resume") == null) return false;
+        Intent i = launchFor((String) m.get("package"));
+        if (i == null) return false;
+        try {
+            activity.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

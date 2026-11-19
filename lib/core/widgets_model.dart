@@ -131,7 +131,7 @@ class WidgetsModel extends ChangeNotifier with WidgetsBindingObserver {
       final m = await Native.widgets.invokeMethod<Map>('media');
       if (m == null) return;
       // La carátula no cambia en cada consulta: comparar sin ella para no redibujar de más.
-      String sig(Map x) => '${x['access']}|${x['title']}|${x['artist']}|${x['playing']}|${(x['position'] ?? 0) ~/ 1000}';
+      String sig(Map x) => '${x['access']}|${x['resume']}|${x['title']}|${x['artist']}|${x['playing']}|${(x['position'] ?? 0) ~/ 1000}';
       if (sig(m) != sig(media)) {
         media = m;
         notifyListeners();
