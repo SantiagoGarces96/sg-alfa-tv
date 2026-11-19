@@ -197,8 +197,47 @@ final class ContinueWatch {
     // ------------------------------------------------------------ entrada desde el servicio
 
     /** Lo llama el servicio de automatizaciones cada vez que lee la pantalla de una app. */
+    // ------------------------------------------------------------ canales en vivo (no van a la lista)
+
+    private static final String LIVE_PREFS = "sgalfa_live_titles";
+
+    /** Canal en vivo del reproductor de WiwyXuper / Xuper Hydra (campo mTvChannel). */
+    private static String liveChannel(List<AccessibilityNodeInfo> nodes) {
+        for (AccessibilityNodeInfo n : nodes) {
+            String id = n.getViewIdResourceName();
+            CharSequence t = n.getText();
+            if (id != null && t != null && id.endsWith(":id/mTvChannel") && t.toString().trim().length() > 1) {
+                return t.toString().trim();
+            }
+        }
+        return null;
+    }
+
+    static boolean isLive(Context c, String title) {
+        if (title == null) return false;
+        return c.getSharedPreferences(LIVE_PREFS, Context.MODE_PRIVATE).contains(Macros.normalize(title));
+    }
+
+    private static void markLive(Context c, String title) {
+        android.content.SharedPreferences p = c.getSharedPreferences(LIVE_PREFS, Context.MODE_PRIVATE);
+        String k = Macros.normalize(title);
+        if (k.isEmpty() || p.contains(k)) return;
+        android.content.SharedPreferences.Editor e = p.edit();
+        if (p.getAll().size() > 300) e.clear();
+        e.putBoolean(k, true).apply();
+    }
+
     static void onScreen(AccessibilityService svc, String pkg, List<AccessibilityNodeInfo> nodes) {
         if (skip(svc, pkg)) return;
+        // Viendo un canal en vivo: no es «continuar viendo» (solo series y películas). Se recuerda el
+        // nombre del canal para no guardarlo tampoco por otras vías (sesión multimedia, otra app Xuper).
+        String live = liveChannel(nodes);
+        if (live != null) {
+            markLive(svc, live);
+            lastTitle.remove(pkg);
+            strong.remove(pkg);
+            return;
+        }
         // La propia app tiene su lista de «Continuar viendo» (Anime Cast): se lee tal cual.
         if (importList(svc, pkg, nodes)) return;
         long now = SystemClock.uptimeMillis();
@@ -314,7 +353,7 @@ final class ContinueWatch {
      * pantalla: la tarjeta pasa al momento al vídeo nuevo (la imagen llega con la siguiente captura).
      */
     static void onMedia(Context c, String pkg, String title, String sub, long pos, long dur) {
-        if (skip(c, pkg) || !sessionTitle(c, pkg, title)) return;
+        if (skip(c, pkg) || !sessionTitle(c, pkg, title) || isLive(c, title)) return;
         worker.execute(() -> save(c, pkg, title, sub, pos, dur, null));
     }
 
@@ -652,6 +691,7 @@ final class ContinueWatch {
                 JSONObject o = a.getJSONObject(i);
                 String pkg = o.getString("pkg");
                 if (skip(c, pkg) || o.optString("title", "").trim().isEmpty()) continue;
+                if (isLive(c, o.optString("title", ""))) continue; // canal en vivo: fuera
                 int n = perApp.containsKey(pkg) ? perApp.get(pkg) : 0;
                 if (n >= PER_APP) continue;
                 perApp.put(pkg, n + 1);

@@ -48,6 +48,9 @@ final class ContinueOpen {
     private static volatile long targetUntil;
     /** 0: buscar en la primera pantalla · 1: se abrió el historial · 2: se abrió el buscador · 3: se escribió. */
     private static volatile int stage;
+    /** ¿La tarjeta es lo más reciente de esa app? (entonces el primero del historial es ese). */
+    private static volatile boolean newest;
+    private static final Pattern WATCHED = Pattern.compile("(?i).*(mir[oó] hasta|visto|watched|episodio|cap[ií]tulo|ep\\.? ?\\d).*");
     private static volatile long stageAt;
     private static final long STAGE_MS = 4500;
 
@@ -80,6 +83,7 @@ final class ContinueOpen {
             targetUntil = SystemClock.uptimeMillis() + WAIT_MS;
             stage = 0;
             stageAt = SystemClock.uptimeMillis();
+            newest = isNewest(c, pkg, title);
         }
         return ok;
     }
@@ -198,6 +202,14 @@ final class ContinueOpen {
             if (edit != null) edit.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.getId());
             return false;
         }
+        if (stage == 1 && newest && now - stageAt > 3000) {
+            // En el historial el nombre puede salir distinto (traducido): el primero es lo último visto.
+            AccessibilityNodeInfo first = firstWatched(root, 0);
+            if (first != null && click(first)) {
+                targetTitle = null;
+                return true;
+            }
+        }
         if (now - stageAt < STAGE_MS) return false;
         if (stage == 0) {
             stage = 1;
@@ -212,6 +224,28 @@ final class ContinueOpen {
             if (s != null && click(s)) return true;
         }
         return false;
+    }
+
+    private static boolean isNewest(Context c, String pkg, String title) {
+        try {
+            for (java.util.Map<String, Object> m : ContinueWatch.list(c)) {
+                if (!pkg.equals(m.get("package"))) continue;
+                return Macros.normalize(String.valueOf(m.get("title"))).equals(Macros.normalize(title));
+            }
+        } catch (Exception ignored) {
+        }
+        return false;
+    }
+
+    private static AccessibilityNodeInfo firstWatched(AccessibilityNodeInfo n, int depth) {
+        if (n == null || depth > 30) return null;
+        CharSequence t = n.getText();
+        if (n.isVisibleToUser() && t != null && WATCHED.matcher(t.toString()).matches()) return n;
+        for (int i = 0; i < n.getChildCount(); i++) {
+            AccessibilityNodeInfo r = firstWatched(n.getChild(i), depth + 1);
+            if (r != null) return r;
+        }
+        return null;
     }
 
     private static boolean click(AccessibilityNodeInfo n) {
