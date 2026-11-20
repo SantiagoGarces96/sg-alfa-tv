@@ -338,6 +338,7 @@ final class ContinueOpen {
             }
         }
         if (exact != null && click(exact)) {
+            ContinueWatch.restartEpisode(pkg); // el capítulo empieza de cero
             episode = null;
             return true;
         }

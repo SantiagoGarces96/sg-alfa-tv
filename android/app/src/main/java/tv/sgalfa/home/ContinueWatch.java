@@ -153,6 +153,17 @@ final class ContinueWatch {
     private static final Map<String, Long> pickedAt = new HashMap<>();
 
     static void onClick(Context c, String pkg, AccessibilityNodeInfo source, List<CharSequence> eventText) {
+        try {
+            if (xuper(pkg) && source != null) {
+                String id = source.getViewIdResourceName();
+                CharSequence t = source.getText();
+                if (t == null && eventText != null && !eventText.isEmpty()) t = eventText.get(0);
+                boolean episodeButton = (id != null && id.endsWith(":id/mTextTitle") && t != null && t.toString().trim().matches("\\d{1,4}"))
+                        || (t != null && t.toString().trim().matches("\\d{1,4}"));
+                if (episodeButton) restartEpisode(pkg);
+            }
+        } catch (Exception ignored) {
+        }
         if (skip(c, pkg)) return;
         String t = null;
         if (source != null) t = firstText(source, 0);
@@ -299,17 +310,27 @@ final class ContinueWatch {
      * Su reproductor no dice por dónde va. Se cuenta el tiempo que el capítulo lleva sonando
      * (mientras la app está delante y hay sonido) para mostrar «Ibas por el min ~12».
      */
+    private static final java.util.Set<String> restart = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+
+    /** El capítulo vuelve a empezar (se tocó su número o se abrió desde la tarjeta): el minuto vuelve a 0. */
+    static void restartEpisode(String pkg) {
+        if (xuper(pkg)) restart.add(pkg);
+    }
+
     static void tick(Context c, String pkg, long ms) {
         if (!xuper(pkg)) return;
         String title = strong.get(pkg);
         if (title == null || !EP_IN_TITLE.matcher(title).find()) return;
-        AudioManager am = (AudioManager) c.getSystemService(Context.AUDIO_SERVICE);
-        if (am == null || !am.isMusicActive()) return;
+        android.os.PowerManager pm = (android.os.PowerManager) c.getSystemService(Context.POWER_SERVICE);
+        if (pm != null && !pm.isInteractive()) return; // pantalla apagada: no cuenta
         android.content.SharedPreferences p = c.getSharedPreferences(WATCH_PREFS, Context.MODE_PRIVATE);
         String k = pkg + "|" + title;
         android.content.SharedPreferences.Editor e = p.edit();
         if (p.getAll().size() > 300) e.clear();
-        e.putLong(k, p.getLong(k, 0) + ms).apply();
+        // Cuenta desde que empieza cada capítulo: si cambió de capítulo o se volvió a empezar, desde 0.
+        boolean fresh = !title.equals(p.getString("last|" + pkg, null)) || restart.remove(pkg);
+        long base = fresh ? 0 : p.getLong(k, 0);
+        e.putString("last|" + pkg, title).putLong(k, base + ms).apply();
     }
 
     private static final Pattern EP_IN_TITLE = Pattern.compile("(?i)\\bT\\d+\\s*E\\d+");
