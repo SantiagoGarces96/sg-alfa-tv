@@ -60,7 +60,7 @@ final class ContinueWatch {
             "^(.{2,60}?)\\s*[-–—·:|]\\s*((episodio|cap[ií]tulo|ep\\.?|temporada|season|episode|t\\d+).*)$", Pattern.CASE_INSENSITIVE);
     private static final Pattern NOISE = Pattern.compile(
             "(pulsa|presiona|mant[eé]n|cargando|espere|proveedor|comentario|recomi[eé]ndanos|instagram|whatsapp|"
-                    + "anuncio|publicidad|siguiente|anterior|reproducir|pausa|ajustes|configuraci|buscar|men[uú]|salir|mir[oó] hasta|ya viste|visto hasta|watched up)",
+                    + "anuncio|publicidad|siguiente|anterior|reproducir|pausa|ajustes|configuraci|buscar|men[uú]|salir|mir[oó] hasta|ya viste|visto hasta|watched up|actualizaci|notificaci|instalar|update|install|descargar)",
             Pattern.CASE_INSENSITIVE);
 
     private ContinueWatch() {
@@ -233,6 +233,8 @@ final class ContinueWatch {
         Matcher m = NAMED.matcher(title);
         if (m.matches()) return m.group(1).trim();
         String s = title.replaceAll("(?i)\\s*[-–—·:|]?\\s*(episodio|cap[ií]tulo|ep\\.?|episode)\\s*\\d+.*$", "").trim();
+        // «Serie T7» y «Serie · T7 E2» son la misma serie (una sola tarjeta).
+        s = s.replaceAll("(?i)\\s*[-–—·:|]?\\s*T\\d+(\\s*E\\d+)?\\s*$", "").trim();
         return s.isEmpty() ? title : s;
     }
 
@@ -596,6 +598,11 @@ final class ContinueWatch {
                 JSONObject o = old.getJSONObject(i);
                 if (key.equals(o.optString("key"))) prev = o;
             }
+            // Misma serie pero sin episodio (p. ej. «Serie T7»): conservar el episodio que ya se sabía.
+            if (prev != null && title != null && !EP_IN_TITLE.matcher(title).find()
+                    && EP_IN_TITLE.matcher(prev.optString("title", "")).find()) {
+                title = prev.optString("title");
+            }
             // Sin título nuevo: seguir con la última tarjeta de esa app (mismo anime que se estaba viendo).
             if (title == null) {
                 for (int i = 0; i < old.length(); i++) {
@@ -848,6 +855,7 @@ final class ContinueWatch {
     static List<Map<String, Object>> list(Context c) {
         List<Map<String, Object>> out = new ArrayList<>();
         Map<String, Integer> perApp = new HashMap<>();
+        java.util.Set<String> seenSeries = new java.util.HashSet<>();
         JSONArray a = load(c);
         for (int i = 0; i < a.length() && out.size() < SHOW; i++) {
             try {
@@ -856,6 +864,8 @@ final class ContinueWatch {
                 if (skip(c, pkg) || o.optString("title", "").trim().isEmpty()) continue;
                 if (isLive(c, o.optString("title", ""))) continue; // canal en vivo: fuera
                 if (NOISE.matcher(o.optString("title", "")).find()) continue; // texto de la app, no un título
+                // Una sola tarjeta por serie (la más reciente).
+                if (!seenSeries.add(pkg + "|" + series(o.optString("title", "")).toLowerCase(Locale.ROOT))) continue;
                 int n = perApp.containsKey(pkg) ? perApp.get(pkg) : 0;
                 if (n >= PER_APP) continue;
                 perApp.put(pkg, n + 1);
