@@ -60,7 +60,7 @@ final class ContinueWatch {
             "^(.{2,60}?)\\s*[-–—·:|]\\s*((episodio|cap[ií]tulo|ep\\.?|temporada|season|episode|t\\d+).*)$", Pattern.CASE_INSENSITIVE);
     private static final Pattern NOISE = Pattern.compile(
             "(pulsa|presiona|mant[eé]n|cargando|espere|proveedor|comentario|recomi[eé]ndanos|instagram|whatsapp|"
-                    + "anuncio|publicidad|siguiente|anterior|reproducir|pausa|ajustes|configuraci|buscar|men[uú]|salir)",
+                    + "anuncio|publicidad|siguiente|anterior|reproducir|pausa|ajustes|configuraci|buscar|men[uú]|salir|mir[oó] hasta|ya viste|visto hasta|watched up)",
             Pattern.CASE_INSENSITIVE);
 
     private ContinueWatch() {
@@ -767,6 +767,7 @@ final class ContinueWatch {
                 String pkg = o.getString("pkg");
                 if (skip(c, pkg) || o.optString("title", "").trim().isEmpty()) continue;
                 if (isLive(c, o.optString("title", ""))) continue; // canal en vivo: fuera
+                if (NOISE.matcher(o.optString("title", "")).find()) continue; // texto de la app, no un título
                 int n = perApp.containsKey(pkg) ? perApp.get(pkg) : 0;
                 if (n >= PER_APP) continue;
                 perApp.put(pkg, n + 1);
