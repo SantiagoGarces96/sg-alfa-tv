@@ -175,7 +175,7 @@ final class ContinueWatch {
                 }
             }
         }
-        if (t == null) return;
+        if (t == null || xuper(pkg)) return;
         picked.put(pkg, t);
         pickedAt.put(pkg, SystemClock.uptimeMillis());
     }
@@ -371,6 +371,40 @@ final class ContinueWatch {
         e.putBoolean(k, true).apply();
     }
 
+    private static final Map<String, String> xuperSaved = new HashMap<>();
+
+    /** Guarda la tarjeta con una imagen del momento (si se puede). */
+    private static void capture(AccessibilityService svc, String pkg, String title) {
+        if (Build.VERSION.SDK_INT >= 30) {
+            try {
+                svc.takeScreenshot(Display.DEFAULT_DISPLAY, worker, new AccessibilityService.TakeScreenshotCallback() {
+                    @Override
+                    public void onSuccess(AccessibilityService.ScreenshotResult r) {
+                        Bitmap frame = null;
+                        try {
+                            Bitmap hw = Bitmap.wrapHardwareBuffer(r.getHardwareBuffer(), r.getColorSpace());
+                            if (hw != null) {
+                                Bitmap sw = hw.copy(Bitmap.Config.ARGB_8888, false);
+                                frame = Bitmap.createScaledBitmap(sw, 480, 270, true);
+                            }
+                            r.getHardwareBuffer().close();
+                        } catch (Exception ignored) {
+                        }
+                        save(svc, pkg, title, null, -1, -1, frame);
+                    }
+
+                    @Override
+                    public void onFailure(int errorCode) {
+                        save(svc, pkg, title, null, -1, -1, null);
+                    }
+                });
+                return;
+            } catch (Exception ignored) {
+            }
+        }
+        worker.execute(() -> save(svc, pkg, title, null, -1, -1, null));
+    }
+
     static void onScreen(AccessibilityService svc, String pkg, List<AccessibilityNodeInfo> nodes) {
         if (skip(svc, pkg)) return;
         // Viendo un canal en vivo: no es «continuar viendo» (solo series y películas). Se recuerda el
@@ -385,6 +419,26 @@ final class ContinueWatch {
         // La propia app tiene su lista de «Continuar viendo» (Anime Cast): se lee tal cual.
         if (importList(svc, pkg, nodes)) return;
         long now = SystemClock.uptimeMillis();
+
+        // WiwyXuper / Xuper Hydra: solo vale la ficha de la serie con temporada y episodio.
+        // Avisos, notificaciones, historial y menús de la app se ignoran (eran los títulos raros).
+        if (xuper(pkg)) {
+            String ep = xuperEpisode(nodes);
+            if (ep != null && !EP_IN_TITLE.matcher(ep).find()) {
+                String prev = strong.get(pkg);
+                ep = prev != null && prev.startsWith(ep + " E") ? prev : null; // mismo capítulo de antes
+            }
+            if (ep == null) return;
+            strong.put(pkg, ep);
+            lastTitle.put(pkg, ep);
+            lastTitleAt.put(pkg, now);
+            Long lastX = lastShot.get(pkg);
+            if (lastX != null && now - lastX < SHOT_EVERY_MS && ep.equals(xuperSaved.get(pkg))) return;
+            lastShot.put(pkg, now);
+            xuperSaved.put(pkg, ep);
+            capture(svc, pkg, ep);
+            return;
+        }
 
         // 0) Título de los campos del reproductor (canal o vídeo actual): el más fiable.
         //    En WiwyXuper/Hydra la ficha de la serie da nombre, temporada y episodio por separado.
@@ -864,6 +918,7 @@ final class ContinueWatch {
                 if (skip(c, pkg) || o.optString("title", "").trim().isEmpty()) continue;
                 if (isLive(c, o.optString("title", ""))) continue; // canal en vivo: fuera
                 if (NOISE.matcher(o.optString("title", "")).find()) continue; // texto de la app, no un título
+                if (xuper(pkg) && !EP_IN_TITLE.matcher(o.optString("title", "")).find()) continue; // sin episodio: dudosa
                 // Una sola tarjeta por serie (la más reciente).
                 if (!seenSeries.add(pkg + "|" + series(o.optString("title", "")).toLowerCase(Locale.ROOT))) continue;
                 int n = perApp.containsKey(pkg) ? perApp.get(pkg) : 0;
