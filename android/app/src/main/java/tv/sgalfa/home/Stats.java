@@ -15,6 +15,8 @@ public final class Stats {
     private static final String PREFS = "sgalfa_stats";
     public static final String ADS = "ads";
     public static final String ACTIONS = "actions";
+    /** Anuncios de Spotify: direcciones de anuncios bloqueadas + anuncios de audio silenciados. */
+    public static final String SPOTIFY = "spotify_ads";
 
     private Stats() {
     }

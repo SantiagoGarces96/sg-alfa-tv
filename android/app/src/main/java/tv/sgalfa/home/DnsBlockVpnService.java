@@ -277,6 +277,7 @@ public class DnsBlockVpnService extends VpnService {
                 final String host = qname(query);
                 if (host != null && isBlocked(host)) {
                     Stats.add(this, Stats.ADS);
+                    if (host.contains("spotify")) Stats.add(this, Stats.SPOTIFY);
                     synchronized (output) {
                         output.write(buildUdpIpv4(dstIp, srcIp, dstPort, srcPort, buildBlockedDns(query)));
                     }

@@ -159,6 +159,7 @@ public class MediaListener extends NotificationListenerService {
                             android.media.AudioManager.ADJUST_MUTE, 0);
                     mutedByUs = true;
                     Stats.add(this, Stats.ADS);
+                    Stats.add(this, Stats.SPOTIFY);
                 }
             } else {
                 unmute();

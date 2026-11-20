@@ -358,6 +358,13 @@ class _ProtectionPageState extends State<_ProtectionPage> {
         trailing: _busy ? const SizedBox(width: 58, child: LinearProgressIndicator()) : RetroSwitch(t.adblock),
         onTap: _busy ? null : () => _setAdblock(!t.adblock),
       ),
+      if (t.spotify)
+        _Row(
+          icon: Icons.music_note,
+          title: 'Anuncios de Spotify',
+          subtitle: '${t.spotifyAds} ${t.spotifyAds == 1 ? 'bloqueado' : 'bloqueados'} hoy · los de audio se silencian solos',
+          onTap: () => context.read<TodayModel>().refresh(),
+        ),
       _Row(
         icon: Icons.smart_button,
         title: 'Servicio de automatizaciones',

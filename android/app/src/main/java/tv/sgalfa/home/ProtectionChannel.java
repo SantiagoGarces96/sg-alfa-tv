@@ -62,6 +62,16 @@ public final class ProtectionChannel {
                             Map<String, Object> t = new HashMap<>();
                             t.put("ads", Stats.get(activity, Stats.ADS));
                             t.put("actions", Stats.get(activity, Stats.ACTIONS));
+                            t.put("spotifyAds", Stats.get(activity, Stats.SPOTIFY));
+                            boolean sp = false;
+                            for (String p : new String[]{"com.spotify.tv.android", "com.spotify.music"}) {
+                                try {
+                                    activity.getPackageManager().getApplicationInfo(p, 0);
+                                    sp = true;
+                                } catch (Exception ignored) {
+                                }
+                            }
+                            t.put("spotify", sp);
                             t.put("adblock", DnsBlockVpnService.isProtecting(activity));
                             t.put("automation", AutoClickService.isEnabled(activity));
                             Map<String, Object> s = null;

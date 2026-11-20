@@ -38,6 +38,8 @@ class TodayModel extends ChangeNotifier with WidgetsBindingObserver {
   bool get adblock => data['adblock'] == true;
   bool get automation => data['automation'] == true;
   int get ads => (data['ads'] as num?)?.toInt() ?? 0;
+  int get spotifyAds => (data['spotifyAds'] as num?)?.toInt() ?? 0;
+  bool get spotify => data['spotify'] == true;
   int get actions => (data['actions'] as num?)?.toInt() ?? 0;
   Map? get suggestion => data['suggestion'] is Map ? data['suggestion'] as Map : null;
   bool get cleanDue => data['cleanDue'] == true;
