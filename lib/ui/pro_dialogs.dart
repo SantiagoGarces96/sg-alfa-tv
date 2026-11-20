@@ -200,7 +200,18 @@ class _SearchDialogState extends State<_SearchDialog> {
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text('Buscar en tus apps', style: Pro.title(24)),
             const SizedBox(height: 12),
-            TextField(
+            // Con el control: ↓ desde el cuadro de texto baja a la lista de apps.
+            Focus(
+              canRequestFocus: false,
+              skipTraversal: true,
+              onKeyEvent: (node, e) {
+                if (e is KeyDownEvent && e.logicalKey == LogicalKeyboardKey.arrowDown) {
+                  FocusScope.of(context).nextFocus();
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: TextField(
               controller: _text,
               autofocus: true,
               style: const TextStyle(fontSize: 20),
@@ -213,6 +224,7 @@ class _SearchDialogState extends State<_SearchDialog> {
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               ),
               onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+            ),
             ),
             const SizedBox(height: 12),
             if (widget.apps.isEmpty)
