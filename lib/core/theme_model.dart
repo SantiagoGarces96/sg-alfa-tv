@@ -647,6 +647,12 @@ class ThemeModel extends ChangeNotifier {
         _custom = (jsonDecode(raw) as List).whereType<Map>().map((m) => SgTheme.fromJson(m.cast())).toList();
       }
     } catch (_) {}
+    // Instalación nueva (sin tema ni fondo elegidos): «Moderno» con el fondo «Noche roja».
+    if (p.getString('theme') == null && p.getString('wallpaper_override') == null &&
+        p.getString('custom_themes') == null && p.getBool('onboarded') == null) {
+      await p.setString('theme', SgThemes.moderno.id);
+      await p.setString('wallpaper_override', 'noche-roja');
+    }
     _selectedId = p.getString('theme') ?? _selectedId;
     _auto = p.getBool('theme_auto') ?? false;
     _dayId = p.getString('theme_day') ?? _dayId;

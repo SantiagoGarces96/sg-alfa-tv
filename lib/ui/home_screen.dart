@@ -18,6 +18,7 @@ import 'app_options.dart';
 import 'app_tile.dart';
 import 'clean_prompt.dart';
 import 'dashboard.dart';
+import 'first_run.dart';
 import 'home_widgets.dart';
 import 'nav.dart';
 import 'retro.dart';
@@ -43,6 +44,10 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     Native.onHomePressed(_goHome);
     context.read<TodayModel>().addListener(_maybeClean);
+    // Deco o tele nuevos: pedir de una vez los permisos (bloqueo, automatizaciones, lo que suena).
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) maybeFirstRun(context);
+    });
   }
 
   /// El día de limpieza, la primera vez que se ve el inicio, Alfi propone limpiar.
