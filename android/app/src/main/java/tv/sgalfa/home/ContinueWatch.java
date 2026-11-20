@@ -243,6 +243,49 @@ final class ContinueWatch {
         return null;
     }
 
+    private static final Pattern RANGE = Pattern.compile("^(\\d+)\\s*-\\s*(\\d+)$");
+
+    /**
+     * Ficha de serie de WiwyXuper: «Historias corrientes» (mTextTitle) + «Temporada 7» (tvSeanson) +
+     * el episodio que se reproduce (su botón muestra ▶ en vez del número). → «Historias corrientes · T7 E1».
+     */
+    static String xuperEpisode(List<AccessibilityNodeInfo> nodes) {
+        String name = null, season = null;
+        java.util.TreeSet<Integer> nums = new java.util.TreeSet<>();
+        int start = Integer.MAX_VALUE;
+        for (AccessibilityNodeInfo n : nodes) {
+            String id = n.getViewIdResourceName();
+            CharSequence cs = n.getText();
+            if (id == null || cs == null || !id.startsWith("com.xuper.")) continue;
+            String t = cs.toString().trim();
+            if (id.endsWith(":id/tvSeanson")) {
+                Matcher m = Pattern.compile("(\\d+)").matcher(t);
+                if (m.find()) season = m.group(1);
+            } else if (id.endsWith(":id/mTextTitle")) {
+                Matcher r = RANGE.matcher(t);
+                if (r.matches()) {
+                    start = Math.min(start, Integer.parseInt(r.group(1)));
+                } else if (t.matches("\\d{1,4}")) {
+                    nums.add(Integer.parseInt(t));
+                } else if (name == null && t.length() > 1) {
+                    name = t;
+                }
+            }
+        }
+        if (name == null || season == null) return null;
+        String ep = null;
+        if (!nums.isEmpty()) {
+            int from = start == Integer.MAX_VALUE ? nums.first() : start;
+            for (int i = from; i <= nums.last(); i++) {
+                if (!nums.contains(i)) {
+                    ep = String.valueOf(i);
+                    break;
+                }
+            }
+        }
+        return name + " · T" + season + (ep != null ? " E" + ep : "");
+    }
+
     static boolean isLive(Context c, String title) {
         if (title == null) return false;
         return c.getSharedPreferences(LIVE_PREFS, Context.MODE_PRIVATE).contains(Macros.normalize(title));
@@ -273,7 +316,9 @@ final class ContinueWatch {
         long now = SystemClock.uptimeMillis();
 
         // 0) Título de los campos del reproductor (canal o vídeo actual): el más fiable.
-        String fromIds = titleFromIds(nodes);
+        //    En WiwyXuper/Hydra la ficha de la serie da nombre, temporada y episodio por separado.
+        String fromIds = xuperEpisode(nodes);
+        if (fromIds == null) fromIds = titleFromIds(nodes);
         if (fromIds != null) {
             lastTitle.put(pkg, fromIds);
             lastTitleAt.put(pkg, now);

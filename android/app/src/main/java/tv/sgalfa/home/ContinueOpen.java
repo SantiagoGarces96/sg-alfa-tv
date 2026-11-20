@@ -305,6 +305,8 @@ final class ContinueOpen {
             if (t.equals(full)) score = 3;
             else if (!serie.isEmpty() && t.equals(serie)) score = 2;
             else if (serie.length() >= 4 && t.contains(serie) && t.length() <= serie.length() + 30) score = 1;
+            // Nombres recortados en la app («Historias cor..»).
+            else if (t.length() >= 8 && serie.startsWith(t) && cs.toString().trim().endsWith("..")) score = 1;
             if (score == 0) continue;
             // Las tarjetas de «Seguir viendo» de la app, primero.
             if (id != null && (id.contains("episodio") || id.contains("continu") || id.contains("history"))) score += 3;
