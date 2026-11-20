@@ -879,10 +879,24 @@ final class ContinueWatch {
                 Map<String, Object> m = new HashMap<>();
                 m.put("package", pkg);
                 m.put("app", name);
-                m.put("title", o.optString("title", ""));
+                String shown = o.optString("title", "");
+                // Si esta (la más reciente) no trae episodio y otra más vieja de la misma serie sí, usar esa.
+                if (!EP_IN_TITLE.matcher(shown).find()) {
+                    String ser = series(shown).toLowerCase(Locale.ROOT);
+                    for (int j = i + 1; j < a.length(); j++) {
+                        JSONObject x = a.optJSONObject(j);
+                        if (x == null || !pkg.equals(x.optString("pkg"))) continue;
+                        String t2 = x.optString("title", "");
+                        if (EP_IN_TITLE.matcher(t2).find() && series(t2).toLowerCase(Locale.ROOT).equals(ser)) {
+                            shown = t2;
+                            break;
+                        }
+                    }
+                }
+                m.put("title", shown);
                 m.put("sub", o.optString("sub", ""));
                 m.put("pos", o.optLong("pos", -1));
-                long approx = watchedMs(c, pkg, o.optString("title", ""));
+                long approx = watchedMs(c, pkg, String.valueOf(m.get("title")));
                 if (approx >= 60_000) m.put("approxMin", (int) (approx / 60_000));
                 m.put("dur", o.optLong("dur", -1));
                 m.put("time", o.optLong("time", 0));
