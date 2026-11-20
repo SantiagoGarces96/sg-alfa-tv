@@ -264,7 +264,7 @@ final class ContinueWatch {
     static String xuperEpisode(List<AccessibilityNodeInfo> nodes) {
         String name = null, season = null;
         java.util.TreeSet<Integer> nums = new java.util.TreeSet<>();
-        int start = Integer.MAX_VALUE;
+        List<int[]> ranges = new ArrayList<>();
         for (AccessibilityNodeInfo n : nodes) {
             String id = n.getViewIdResourceName();
             CharSequence cs = n.getText();
@@ -276,7 +276,7 @@ final class ContinueWatch {
             } else if (id.endsWith(":id/mTextTitle")) {
                 Matcher r = RANGE.matcher(t);
                 if (r.matches()) {
-                    start = Math.min(start, Integer.parseInt(r.group(1)));
+                    ranges.add(new int[]{Integer.parseInt(r.group(1)), Integer.parseInt(r.group(2))});
                 } else if (t.matches("\\d{1,4}")) {
                     nums.add(Integer.parseInt(t));
                 } else if (name == null && t.length() > 1) {
@@ -287,11 +287,26 @@ final class ContinueWatch {
         if (name == null || season == null) return null;
         String ep = null;
         if (!nums.isEmpty()) {
-            int from = start == Integer.MAX_VALUE ? nums.first() : start;
-            for (int i = from; i <= nums.last(); i++) {
+            // El que suena muestra ▶ en vez de su número: es el hueco entre los números que se ven
+            // (p. ej. 61 62 63 64 ▶ 66 → 65). Solo dentro de lo visible; los bloques 1-20, 61-80…
+            // sirven para el caso en que el ▶ es el primero o el último del bloque.
+            int first = nums.first(), last = nums.last();
+            for (int i = first + 1; i < last; i++) {
                 if (!nums.contains(i)) {
                     ep = String.valueOf(i);
                     break;
+                }
+            }
+            if (ep == null) {
+                for (int[] r : ranges) {
+                    if (first == r[0] + 1 && first <= r[1]) {
+                        ep = String.valueOf(r[0]);
+                        break;
+                    }
+                    if (last == r[1] - 1 && last >= r[0] && last - first + 2 == r[1] - r[0] + 1) {
+                        ep = String.valueOf(r[1]); // bloque entero a la vista y el ▶ es el último
+                        break;
+                    }
                 }
             }
         }
@@ -372,6 +387,10 @@ final class ContinueWatch {
         // 0) Título de los campos del reproductor (canal o vídeo actual): el más fiable.
         //    En WiwyXuper/Hydra la ficha de la serie da nombre, temporada y episodio por separado.
         String fromIds = xuperEpisode(nodes);
+        if (fromIds != null && !EP_IN_TITLE.matcher(fromIds).find()) {
+            String prev = strong.get(pkg);
+            if (prev != null && prev.startsWith(fromIds + " E")) fromIds = prev; // mismo capítulo de antes
+        }
         if (fromIds == null) fromIds = titleFromIds(nodes);
         if (fromIds != null) {
             lastTitle.put(pkg, fromIds);
