@@ -91,7 +91,25 @@ public class AutoClickService extends AccessibilityService {
         // Vigilante: si el bloqueador de anuncios se apagó solo, se vuelve a encender.
         handler.removeCallbacks(watchdog);
         handler.postDelayed(watchdog, 5_000);
+        handler.removeCallbacks(watchTick);
+        handler.postDelayed(watchTick, WATCH_TICK_MS);
     }
+
+    static final long WATCH_TICK_MS = 30_000;
+
+    /** Cada 30 s: si suena un capítulo de WiwyXuper/Hydra, se suma al tiempo visto de ese capítulo. */
+    private final Runnable watchTick = new Runnable() {
+        @Override
+        public void run() {
+            try {
+                android.view.accessibility.AccessibilityNodeInfo root = getRootInActiveWindow();
+                CharSequence pkg = root != null ? root.getPackageName() : null;
+                if (pkg != null) ContinueWatch.tick(AutoClickService.this, pkg.toString(), WATCH_TICK_MS);
+            } catch (Exception ignored) {
+            }
+            handler.postDelayed(this, WATCH_TICK_MS);
+        }
+    };
 
     private final Runnable watchdog = new Runnable() {
         @Override

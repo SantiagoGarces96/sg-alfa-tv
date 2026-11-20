@@ -287,6 +287,38 @@ final class ContinueWatch {
         return name + " · T" + season + (ep != null ? " E" + ep : "");
     }
 
+    // ------------------------------------------------------------ minuto aproximado (WiwyXuper / Hydra)
+
+    private static final String WATCH_PREFS = "sgalfa_watch_ms";
+
+    private static boolean xuper(String pkg) {
+        return pkg != null && (pkg.startsWith("com.xuper.") || pkg.startsWith("com.tivo.hydra"));
+    }
+
+    /**
+     * Su reproductor no dice por dónde va. Se cuenta el tiempo que el capítulo lleva sonando
+     * (mientras la app está delante y hay sonido) para mostrar «Ibas por el min ~12».
+     */
+    static void tick(Context c, String pkg, long ms) {
+        if (!xuper(pkg)) return;
+        String title = strong.get(pkg);
+        if (title == null || !EP_IN_TITLE.matcher(title).find()) return;
+        AudioManager am = (AudioManager) c.getSystemService(Context.AUDIO_SERVICE);
+        if (am == null || !am.isMusicActive()) return;
+        android.content.SharedPreferences p = c.getSharedPreferences(WATCH_PREFS, Context.MODE_PRIVATE);
+        String k = pkg + "|" + title;
+        android.content.SharedPreferences.Editor e = p.edit();
+        if (p.getAll().size() > 300) e.clear();
+        e.putLong(k, p.getLong(k, 0) + ms).apply();
+    }
+
+    private static final Pattern EP_IN_TITLE = Pattern.compile("(?i)\\bT\\d+\\s*E\\d+");
+
+    static long watchedMs(Context c, String pkg, String title) {
+        if (!xuper(pkg) || title == null) return 0;
+        return c.getSharedPreferences(WATCH_PREFS, Context.MODE_PRIVATE).getLong(pkg + "|" + title, 0);
+    }
+
     static boolean isLive(Context c, String title) {
         if (title == null) return false;
         return c.getSharedPreferences(LIVE_PREFS, Context.MODE_PRIVATE).contains(Macros.normalize(title));
@@ -800,6 +832,8 @@ final class ContinueWatch {
                 m.put("title", o.optString("title", ""));
                 m.put("sub", o.optString("sub", ""));
                 m.put("pos", o.optLong("pos", -1));
+                long approx = watchedMs(c, pkg, o.optString("title", ""));
+                if (approx >= 60_000) m.put("approxMin", (int) (approx / 60_000));
                 m.put("dur", o.optLong("dur", -1));
                 m.put("time", o.optLong("time", 0));
                 String path = o.optString("image", "");
