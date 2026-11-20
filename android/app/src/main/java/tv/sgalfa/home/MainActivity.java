@@ -19,6 +19,7 @@ public class MainActivity extends FlutterActivity {
     @Override
     public void configureFlutterEngine(@NonNull FlutterEngine engine) {
         super.configureFlutterEngine(engine);
+        ProTools.installCrashLog(this); // guarda cierres inesperados para «Generar diagnóstico»
         launcher = new LauncherChannel(this);
         launcher.register(engine.getDartExecutor().getBinaryMessenger());
         protection = new ProtectionChannel(this);

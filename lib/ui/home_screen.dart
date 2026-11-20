@@ -19,6 +19,9 @@ import 'app_tile.dart';
 import 'clean_prompt.dart';
 import 'dashboard.dart';
 import 'first_run.dart';
+import 'update_dialog.dart';
+import '../core/update_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'home_widgets.dart';
 import 'nav.dart';
 import 'retro.dart';
@@ -44,10 +47,29 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     Native.onHomePressed(_goHome);
     context.read<TodayModel>().addListener(_maybeClean);
+    // Versión nueva en GitHub: se descarga sola y se ofrece instalar (una vez por versión).
+    context.read<UpdateModel>().addListener(_maybeUpdate);
     // Deco o tele nuevos: pedir de una vez los permisos (bloqueo, automatizaciones, lo que suena).
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) maybeFirstRun(context);
     });
+  }
+
+  bool _updating = false;
+
+  /// Actualización automática: al detectar una versión nueva la descarga y abre el instalador.
+  Future<void> _maybeUpdate() async {
+    final u = context.read<UpdateModel>();
+    if (!u.available || _updating || !mounted) return;
+    if (ModalRoute.of(context)?.isCurrent != true) return;
+    final p = await SharedPreferences.getInstance();
+    if (p.getString('update_offered') == u.latest) return;
+    _updating = true;
+    await p.setString('update_offered', u.latest);
+    if (!mounted) return;
+    u.download(); // al terminar abre la ventana de instalar de Android
+    await showUpdateDialog(context);
+    _updating = false;
   }
 
   /// El día de limpieza, la primera vez que se ve el inicio, Alfi propone limpiar.

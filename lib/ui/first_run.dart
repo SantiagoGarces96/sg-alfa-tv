@@ -31,13 +31,13 @@ Future<void> maybeFirstRun(BuildContext context) async {
 }
 
 class _Status {
-  final bool adblock, automation, media;
-  const _Status(this.adblock, this.automation, this.media);
-  bool get all => adblock && automation && media;
+  final bool adblock, automation, media, install;
+  const _Status(this.adblock, this.automation, this.media, this.install);
+  bool get all => adblock && automation && media && install;
 }
 
 Future<_Status> _status() async {
-  bool ad = false, auto = false, media = false;
+  bool ad = false, auto = false, media = false, install = true;
   try {
     final s = await Native.protection.invokeMethod<Map>('getState');
     ad = s?['adblock'] == true;
@@ -47,7 +47,10 @@ Future<_Status> _status() async {
     final m = await Native.widgets.invokeMethod<Map>('media');
     media = m?['access'] == true;
   } catch (_) {}
-  return _Status(ad, auto, media);
+  try {
+    install = await Native.protection.invokeMethod<bool>('canInstall') ?? true;
+  } catch (_) {}
+  return _Status(ad, auto, media, install);
 }
 
 class _FirstRun extends StatefulWidget {
@@ -58,7 +61,7 @@ class _FirstRun extends StatefulWidget {
 }
 
 class _FirstRunState extends State<_FirstRun> with WidgetsBindingObserver {
-  _Status _s = const _Status(false, false, false);
+  _Status _s = const _Status(false, false, false, false);
   bool _busy = false;
 
   @override
@@ -107,6 +110,10 @@ class _FirstRunState extends State<_FirstRun> with WidgetsBindingObserver {
         await Native.widgets.invokeMethod('openMediaAccess');
         return;
       }
+      if (!_s.install) {
+        await Native.protection.invokeMethod('openInstallPermission');
+        return;
+      }
     } catch (_) {}
     if (mounted) setState(() => _busy = false);
   }
@@ -152,6 +159,8 @@ class _FirstRunState extends State<_FirstRun> with WidgetsBindingObserver {
               'Accesibilidad → «SG Alfa · Automatizaciones» → Activar', _s.automation),
           _item(Icons.music_note, 'Lo que suena',
               'Acceso a notificaciones → «SG Alfa · Sonando ahora» → Permitir', _s.media),
+          _item(Icons.system_update_alt, 'Actualizaciones automáticas',
+              'Instalar apps desconocidas → «SG Alfa Home» → Permitir', _s.install),
           const SizedBox(height: 16),
           ProButton(
             autofocus: true,

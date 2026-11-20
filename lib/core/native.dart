@@ -5,6 +5,8 @@
 
 import 'package:flutter/services.dart';
 
+import 'parental.dart';
+
 class Native {
   Native._();
 
@@ -21,7 +23,11 @@ class Native {
   static Future<Uint8List?> appImage(String pkg) =>
       launcher.invokeMethod<Uint8List>('appImage', {'package': pkg});
 
-  static Future<void> launch(String pkg) => launcher.invokeMethod('launch', pkg);
+  /// Abre una app (si tiene PIN, lo pide antes).
+  static Future<void> launch(String pkg) async {
+    if (!await Parental.i.allow(pkg)) return;
+    await launcher.invokeMethod('launch', pkg);
+  }
 
   static Future<void> appInfo(String pkg) => launcher.invokeMethod('appInfo', pkg);
 

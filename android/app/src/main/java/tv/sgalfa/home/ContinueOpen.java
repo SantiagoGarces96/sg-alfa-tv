@@ -86,6 +86,21 @@ final class ContinueOpen {
         return ok;
     }
 
+    /** Búsqueda global: abre la app y escribe {@code query} en su buscador (vía automatizaciones). */
+    static boolean openSearch(Context c, String pkg, String query) {
+        boolean ok = launch(c, pkg);
+        if (ok && AutoClickService.isEnabled(c)) {
+            targetPkg = pkg;
+            targetTitle = query;
+            targetUntil = SystemClock.uptimeMillis() + WAIT_MS;
+            episode = null;
+            newest = false;
+            stage = 1; // saltar la primera pantalla y el historial: directo al buscador
+            stageAt = SystemClock.uptimeMillis() - STAGE_MS;
+        }
+        return ok;
+    }
+
     private static boolean launch(Context c, String pkg) {
         try {
             android.content.pm.PackageManager pm = c.getPackageManager();

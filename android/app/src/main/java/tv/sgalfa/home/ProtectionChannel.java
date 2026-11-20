@@ -56,6 +56,65 @@ public final class ProtectionChannel {
                         }
                         result.success(true);
                         break;
+                    case "setSleepTimer":
+                        ProTools.setSleepTimer(activity, ((Number) call.arguments()).intValue());
+                        result.success(true);
+                        break;
+                    case "sleepRemaining":
+                        result.success(ProTools.sleepRemaining(activity));
+                        break;
+                    case "logError":
+                        ProTools.logError(activity, String.valueOf(call.arguments()));
+                        result.success(true);
+                        break;
+                    case "diagnostics":
+                        new Thread(() -> {
+                            String path = ProTools.diagnostics(activity);
+                            activity.runOnUiThread(() -> result.success(path));
+                        }).start();
+                        break;
+                    case "exportConfig":
+                        new Thread(() -> {
+                            String path = ProTools.exportConfig(activity);
+                            activity.runOnUiThread(() -> result.success(path));
+                        }).start();
+                        break;
+                    case "importConfig": {
+                        boolean ok = ProTools.importConfig(activity);
+                        result.success(ok);
+                        if (ok) {
+                            // Reiniciar el launcher para que lea la configuración nueva.
+                            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                                Intent i = activity.getPackageManager().getLaunchIntentForPackage(activity.getPackageName());
+                                if (i != null) {
+                                    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                                    activity.startActivity(i);
+                                }
+                                Runtime.getRuntime().exit(0);
+                            }, 1500);
+                        }
+                        break;
+                    }
+                    case "canInstall":
+                        result.success(ProTools.canInstall(activity));
+                        break;
+                    case "openInstallPermission":
+                        result.success(ProTools.openInstallPermission(activity));
+                        break;
+                    case "openDreamSettings":
+                        result.success(ProTools.openDreamSettings(activity));
+                        break;
+                    case "searchApps":
+                        result.success(ProTools.searchApps(activity));
+                        break;
+                    case "searchIn": {
+                        java.util.Map<String, Object> a = call.arguments();
+                        String pkg = String.valueOf(a.get("package"));
+                        String q = String.valueOf(a.get("query"));
+                        NetGate.whenOnline(activity, pkg, () -> ProTools.searchIn(activity, pkg, q));
+                        result.success(true);
+                        break;
+                    }
                     case "getToday": {
                         // En otro hilo: leer el historial de uso puede tardar un poco.
                         new Thread(() -> {

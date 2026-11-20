@@ -10,6 +10,9 @@ import 'package:provider/provider.dart';
 
 import 'core/alfi_model.dart';
 import 'core/apps_model.dart';
+import 'core/native.dart';
+import 'core/parental.dart';
+import 'ui/pro_dialogs.dart';
 import 'core/device_model.dart';
 import 'core/theme_model.dart';
 import 'core/update_model.dart';
@@ -29,6 +32,14 @@ void main() {
         ['Press Start 2P (tipografía)'], await rootBundle.loadString('assets/fonts/OFL-PressStart2P.txt'));
   });
 
+  // Errores de la interfaz: se guardan para «Generar diagnóstico».
+  FlutterError.onError = (d) {
+    FlutterError.presentError(d);
+    Native.protection.invokeMethod('logError', d.toString()).catchError((_) => null);
+  };
+  Parental.asker = askParentalPin;
+  Parental.i.load();
+
   final theme = ThemeModel()..load();
   final apps = AppsModel()..load();
   final device = DeviceModel()..load();
@@ -36,6 +47,11 @@ void main() {
   final alfi = AlfiModel()..start();
   final updates = UpdateModel()..start();
   final widgetsData = WidgetsModel()..start();
+  // Modo niños: al cambiarlo se esconden o aparecen las apps con PIN y «Continuar viendo».
+  Parental.i.addListener(() {
+    apps.touch();
+    widgetsData.refreshRecent();
+  });
 
   runApp(MultiProvider(
     providers: [
@@ -46,6 +62,7 @@ void main() {
       ChangeNotifierProvider.value(value: alfi),
       ChangeNotifierProvider.value(value: updates),
       ChangeNotifierProvider.value(value: widgetsData),
+      ChangeNotifierProvider.value(value: Parental.i),
     ],
     child: const SgAlfaApp(),
   ));
@@ -79,6 +96,7 @@ class _SgAlfaAppState extends State<SgAlfaApp> {
   Widget build(BuildContext context) {
     context.watch<ThemeModel>();
     return MaterialApp(
+      navigatorKey: navKey,
       title: 'SG Alfa Home',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(

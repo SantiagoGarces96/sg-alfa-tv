@@ -114,6 +114,22 @@
         <meta-data android:name="flutterEmbedding" android:value="2" />
         <!-- En TV de gama baja, el renderizador Skia va más fluido que Impeller. -->
         <meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="false" />
+        <!-- Temporizador para dormir -->
+        <receiver
+            android:name=".ProTools$SleepReceiver"
+            android:exported="false" />
+
+        <!-- Salvapantallas SG Alfa (hora, clima y lo que suena) -->
+        <service
+            android:name=".SgAlfaDream"
+            android:exported="true"
+            android:label="SG Alfa"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
     </application>
 
     <queries>

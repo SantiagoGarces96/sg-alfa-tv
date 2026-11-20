@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'native.dart';
+import 'parental.dart';
 
 class TvApp {
   final String package;
@@ -59,11 +60,16 @@ class AppsModel extends ChangeNotifier {
 
   List<TvApp> get favorites => [
         for (final p in _favorites)
-          ..._all.where((a) => a.package == p && !_hidden.contains(a.package)),
+          ..._all.where((a) => a.package == p && !_hidden.contains(a.package) && !Parental.i.hidden(a.package)),
       ];
 
+  /// Avisar a la interfaz (p. ej. al activar el modo niños).
+  void touch() => notifyListeners();
+
   List<TvApp> get others {
-    final list = _all.where((a) => !_favorites.contains(a.package) && !_hidden.contains(a.package)).toList();
+    final list = _all
+        .where((a) => !_favorites.contains(a.package) && !_hidden.contains(a.package) && !Parental.i.hidden(a.package))
+        .toList();
     list.sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
     return list;
   }

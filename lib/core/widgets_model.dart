@@ -13,6 +13,7 @@ import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'native.dart';
+import 'parental.dart';
 
 class Weather {
   final String city;
@@ -123,7 +124,7 @@ class WidgetsModel extends ChangeNotifier with WidgetsBindingObserver {
       if (w != null) {
         final list = w.whereType<Map>().toList();
         if (list.toString() != watching.toString()) {
-          watching = list;
+          watching = Parental.i.kids ? const [] : list;
           notifyListeners();
         }
       }

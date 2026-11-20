@@ -19,6 +19,8 @@ import '../core/widgets_model.dart';
 import 'home_widgets.dart';
 import 'nav.dart';
 import 'pro.dart';
+import 'pro_dialogs.dart';
+import '../core/parental.dart';
 
 double dashUnit(BuildContext context) =>
     MediaQuery.sizeOf(context).width / 1600;
@@ -100,15 +102,22 @@ class DashTopBar extends StatelessWidget {
             Positioned(
               left: 803 * u,
               top: 47 * u,
-              width: (hasInputs ? 338 : 425) * u,
+              width: (hasInputs ? 251 : 338) * u,
               height: 82 * u,
-              child: _MediaCard(u: u),
+              child: _MediaCard(u: u, compact: hasInputs),
             ),
             Positioned(
-              left: (hasInputs ? 1177 : 1264) * u,
+              left: (hasInputs ? 1090 : 1177) * u,
               top: 50 * u,
               child: Row(
                 children: [
+                  // Buscar a la vez en TizenTube, Spotify, WiwyXuper, Anime Cast...
+                  _Circle(
+                    u: u,
+                    icon: Icons.search,
+                    onPressed: () => showGlobalSearch(context),
+                  ),
+                  SizedBox(width: 17 * u),
                   if (hasInputs) ...[
                     // Entradas de la tele (HDMI, AV, antena...), al lado del escudo.
                     _Circle(
@@ -294,8 +303,10 @@ class _WeatherCard extends StatelessWidget {
 
 class _MediaCard extends StatelessWidget {
   final double u;
+  /// En teles (con botón de entradas) hay menos sitio: solo ▶/❚❚.
+  final bool compact;
 
-  const _MediaCard({required this.u});
+  const _MediaCard({required this.u, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
@@ -392,23 +403,27 @@ class _MediaCard extends StatelessWidget {
           ),
           if (access) ...[
             SizedBox(width: 8 * u),
-            _MediaBtn(
-              u: u,
-              icon: Icons.skip_previous,
-              onPressed: () => w.command('prev'),
-            ),
-            SizedBox(width: 6 * u),
+            if (!compact) ...[
+              _MediaBtn(
+                u: u,
+                icon: Icons.skip_previous,
+                onPressed: () => w.command('prev'),
+              ),
+              SizedBox(width: 6 * u),
+            ],
             _MediaBtn(
               u: u,
               icon: playing ? Icons.pause : Icons.play_arrow,
               onPressed: () => w.command('toggle'),
             ),
-            SizedBox(width: 6 * u),
-            _MediaBtn(
-              u: u,
-              icon: Icons.skip_next,
-              onPressed: () => w.command('next'),
-            ),
+            if (!compact) ...[
+              SizedBox(width: 6 * u),
+              _MediaBtn(
+                u: u,
+                icon: Icons.skip_next,
+                onPressed: () => w.command('next'),
+              ),
+            ],
           ],
         ],
       ),
@@ -737,6 +752,7 @@ class _ContinueCardState extends State<_ContinueCard> {
       onLongPress: () => _askRemove(context, title),
       // Abre lo que se estaba viendo (no solo la app); si no se puede, abre la app.
       onPressed: () async {
+        if (!await Parental.i.allow('${it['package']}')) return;
         bool ok = false;
         try {
           ok = await Native.widgets.invokeMethod<bool>('openContinue', {

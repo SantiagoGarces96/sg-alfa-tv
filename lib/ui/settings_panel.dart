@@ -20,6 +20,8 @@ import '../core/widgets_model.dart';
 import 'automations_screen.dart';
 import 'home_widgets.dart';
 import 'pro.dart';
+import 'pro_dialogs.dart';
+import '../core/parental.dart';
 
 Future<void> showSettingsPanel(BuildContext context, {String? page}) => showGeneralDialog(
       context: context,
@@ -310,6 +312,47 @@ class _MainPage extends StatelessWidget {
         onTap: () => Navigator.of(context).push(_route(const _NumbersPage())),
       ),
       _Row(
+        icon: Icons.search,
+        title: 'Buscar en tus apps',
+        subtitle: 'TizenTube, Spotify, WiwyXuper, Anime Cast…',
+        onTap: () => showGlobalSearch(context),
+      ),
+      _Row(
+        icon: Icons.bedtime_outlined,
+        title: 'Temporizador para dormir',
+        subtitle: 'Pausa lo que suena y apaga la pantalla',
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(context).push(_route(const _SleepPage())),
+      ),
+      _Row(
+        icon: Icons.lock_outline,
+        title: 'Control parental',
+        subtitle: context.watch<Parental>().kids
+            ? 'Modo niños activo'
+            : (context.watch<Parental>().hasPin ? 'PIN activo' : 'PIN para apps y modo niños'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(context).push(_route(const _ParentalPage())),
+      ),
+      _Row(
+        icon: Icons.nights_stay_outlined,
+        title: 'Salvapantallas SG Alfa',
+        subtitle: 'Elige «SG Alfa» en la pantalla de salvapantallas',
+        onTap: () => Native.protection.invokeMethod('openDreamSettings'),
+      ),
+      _Row(
+        icon: Icons.backup_outlined,
+        title: 'Copia de la configuración',
+        subtitle: 'Guardar o restaurar todos tus ajustes',
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(context).push(_route(const _BackupPage())),
+      ),
+      _Row(
+        icon: Icons.help_outline,
+        title: 'Ayuda y novedades',
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(context).push(_route(const _HelpPage())),
+      ),
+      _Row(
         icon: Icons.settings,
         title: context.watch<DeviceModel>().isTv ? 'Ajustes de la tele' : 'Ajustes del deco',
         onTap: Native.openSystemSettings,
@@ -565,6 +608,24 @@ class _AboutPage extends StatelessWidget {
             final u = context.read<UpdateModel>();
             if (!u.available) u.check();
             showUpdateDialog(context);
+          },
+        ),
+        _Row(
+          icon: Icons.bug_report_outlined,
+          title: 'Generar diagnóstico',
+          subtitle: 'Informe con el estado del equipo y los últimos errores',
+          onTap: () async {
+            final path = await Native.protection.invokeMethod<String>('diagnostics') ?? '';
+            if (!context.mounted) return;
+            await showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                backgroundColor: Pro.bg,
+                title: const Text('Diagnóstico listo'),
+                content: Text(path.isEmpty ? 'No se pudo guardar.' : 'Guardado en:\n$path\n\nEnvíalo a soporte para revisarlo.'),
+                actions: [ProButton(autofocus: true, onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cerrar'))],
+              ),
+            );
           },
         ),
         _Row(
@@ -1317,4 +1378,217 @@ class _ThumbState extends State<_Thumb> {
           ]),
         ),
       );
+}
+
+
+// ======================================================================= herramientas pro
+
+/// Temporizador para dormir: pausa lo que suena y apaga la pantalla.
+class _SleepPage extends StatefulWidget {
+  const _SleepPage();
+
+  @override
+  State<_SleepPage> createState() => _SleepPageState();
+}
+
+class _SleepPageState extends State<_SleepPage> {
+  int _left = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final ms = await Native.protection.invokeMethod<int>('sleepRemaining') ?? 0;
+    if (mounted) setState(() => _left = (ms / 60000).ceil());
+  }
+
+  Future<void> _set(int min) async {
+    await Native.protection.invokeMethod('setSleepTimer', min);
+    await _load();
+  }
+
+  static String _label(int m) {
+    if (m < 60) return '$m minutos';
+    if (m == 60) return '1 hora';
+    final h = m ~/ 60, r = m % 60;
+    return r == 0 ? '$h horas' : '$h h $r min';
+  }
+
+  @override
+  Widget build(BuildContext context) => _Page(title: 'TEMPORIZADOR PARA DORMIR', children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text(
+              _left > 0
+                  ? 'Se apagará en $_left min: se pausa lo que suena y la pantalla entra en reposo.'
+                  : 'Elige en cuánto tiempo se pausa lo que suena y la pantalla entra en reposo.',
+              style: Pro.body(15, color: Pro.sub)),
+        ),
+        for (final m in const [15, 30, 45, 60, 90, 120])
+          _Row(
+            autofocus: m == 30,
+            icon: Icons.bedtime_outlined,
+            title: _label(m),
+            onTap: () => _set(m),
+          ),
+        _Row(
+          icon: Icons.close,
+          title: 'Quitar temporizador',
+          subtitle: _left > 0 ? 'Ahora: $_left min' : 'No hay ninguno puesto',
+          onTap: () => _set(0),
+        ),
+      ]);
+}
+
+/// Control parental: PIN, apps protegidas y modo niños.
+class _ParentalPage extends StatelessWidget {
+  const _ParentalPage();
+
+  Future<void> _changePin(BuildContext context) async {
+    final par = Parental.i;
+    if (par.hasPin && !await askParentalPin(context, 'PIN actual')) return;
+    if (!context.mounted) return;
+    final a = await enterPin(context, 'Nuevo PIN');
+    if (a == null || !context.mounted) return;
+    final b = await enterPin(context, 'Repite el PIN', check: (v) => v == a);
+    if (b != null) await par.setPin(b);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final par = context.watch<Parental>();
+    final apps = context.watch<AppsModel>();
+    final seen = <String>{};
+    final list = [
+      for (final a in [...apps.favorites, ...apps.others, ...apps.hiddenApps])
+        if (seen.add(a.package)) a,
+    ];
+    return _Page(title: 'CONTROL PARENTAL', children: [
+      _Row(
+        autofocus: true,
+        icon: Icons.pin_outlined,
+        title: par.hasPin ? 'Cambiar PIN' : 'Crear PIN',
+        subtitle: par.hasPin ? 'PIN de 4 números activo' : 'Necesario para proteger apps',
+        onTap: () => _changePin(context),
+      ),
+      if (par.hasPin)
+        _Row(
+          icon: Icons.child_care,
+          title: 'Modo niños',
+          subtitle: par.kids
+              ? 'Activo: las apps con PIN y «Continuar viendo» no se ven'
+              : 'Esconde las apps con PIN y «Continuar viendo»',
+          trailing: RetroSwitch(par.kids),
+          onTap: () async {
+            if (par.kids && !await askParentalPin(context, 'Salir del modo niños')) return;
+            await par.setKids(!par.kids);
+          },
+        ),
+      if (par.hasPin) ...[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 14, 4, 8),
+          child: Text('Apps que piden PIN al abrirse', style: Pro.body(15, color: Pro.sub)),
+        ),
+        for (final a in list)
+          _Row(
+            icon: Icons.apps,
+            title: a.label,
+            trailing: RetroSwitch(par.locked.contains(a.package)),
+            onTap: () async {
+              final on = par.locked.contains(a.package);
+              if (on && !await askParentalPin(context, 'Quitar PIN de ${a.label}')) return;
+              await par.setLocked(a.package, !on);
+            },
+          ),
+        _Row(
+          icon: Icons.delete_outline,
+          title: 'Borrar PIN',
+          subtitle: 'Quita el control parental',
+          onTap: () async {
+            if (!await askParentalPin(context, 'Borrar PIN')) return;
+            await par.setPin('');
+          },
+        ),
+      ],
+    ]);
+  }
+}
+
+/// Copia de la configuración: guardar y restaurar.
+class _BackupPage extends StatefulWidget {
+  const _BackupPage();
+
+  @override
+  State<_BackupPage> createState() => _BackupPageState();
+}
+
+class _BackupPageState extends State<_BackupPage> {
+  String _msg = 'Guarda tema, fondo, favoritas, números del control, automatizaciones y PIN en un archivo '
+      '(sgalfa-config.json, en Descargas). Cópialo a otro deco o tele y pulsa «Restaurar».';
+
+  @override
+  Widget build(BuildContext context) => _Page(title: 'COPIA DE LA CONFIGURACIÓN', children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text(_msg, style: Pro.body(15, color: Pro.sub)),
+        ),
+        _Row(
+          autofocus: true,
+          icon: Icons.save_alt,
+          title: 'Guardar configuración',
+          onTap: () async {
+            final path = await Native.protection.invokeMethod<String>('exportConfig') ?? '';
+            if (mounted) setState(() => _msg = path.isEmpty ? 'No se pudo guardar.' : 'Guardada en $path');
+          },
+        ),
+        _Row(
+          icon: Icons.restore,
+          title: 'Restaurar configuración',
+          subtitle: 'El launcher se reinicia con los ajustes del archivo',
+          onTap: () async {
+            final ok = await Native.protection.invokeMethod<bool>('importConfig') ?? false;
+            if (mounted && !ok) {
+              setState(() => _msg = 'No encontré sgalfa-config.json en Descargas ni en la carpeta de SG Alfa.');
+            }
+          },
+        ),
+      ]);
+}
+
+/// Ayuda y novedades.
+class _HelpPage extends StatelessWidget {
+  const _HelpPage();
+
+  static const _tips = <List<String>>[
+    ['Continuar viendo', 'Lo último de cada app (series, episodios, videos). OK abre lo que veías; mantener OK lo quita.'],
+    ['Lo que suena', 'Arriba se ve la música o el video que suena, con ▶/❚❚. Si la app se pausó al salir, ▶ la vuelve a abrir.'],
+    ['Buscar', 'La lupa de arriba busca a la vez en TizenTube, Spotify, WiwyXuper, Anime Cast…'],
+    ['Bloqueo de anuncios', 'El escudo: bloquea anuncios y rastreo en todas las apps y baja el volumen de los anuncios de Spotify.'],
+    ['Automatizaciones', 'Cierra solas las ventanas de «¿Sigues viendo?», «Saltar intro», avisos de actualización…'],
+    ['Números del control', 'En el inicio, cada número abre una app (Ajustes → Números del control).'],
+    ['Temporizador para dormir', 'Pausa lo que suena y apaga la pantalla a la hora que elijas.'],
+    ['Control parental', 'PIN para apps y «Modo niños», que las esconde.'],
+    ['Salvapantallas', 'Hora, fecha y lo que suena, moviéndose despacio para cuidar la pantalla.'],
+    ['Copia de la configuración', 'Deja otro deco igual que este en un minuto.'],
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final u = context.watch<UpdateModel>();
+    return _Page(title: 'AYUDA Y NOVEDADES', children: [
+      for (var i = 0; i < _tips.length; i++)
+        _Row(autofocus: i == 0, icon: Icons.help_outline, title: _tips[i][0], subtitle: _tips[i][1], onTap: () {}),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(4, 16, 4, 6),
+        child: Text('Novedades · versión ${u.current}', style: Pro.title(20)),
+      ),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Text(u.notes.trim().isEmpty ? 'Mejoras y arreglos.' : u.notes.trim(), style: Pro.body(15, color: Pro.sub)),
+      ),
+    ]);
+  }
 }

@@ -84,6 +84,7 @@ public class AutoClickService extends AccessibilityService {
     protected void onServiceConnected() {
         super.onServiceConnected();
         instance = this;
+        ProTools.installCrashLog(this);
         cleaner = new CacheCleaner(this);
         loadMacros();
         prefs().registerOnSharedPreferenceChangeListener(listener);
