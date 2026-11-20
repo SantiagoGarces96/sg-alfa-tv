@@ -422,9 +422,12 @@ class _Focusable extends StatefulWidget {
   final VoidCallback onPressed;
   final FocusNode? focusNode;
   final VoidCallback? onFocused;
+  /** Mantener OK pulsado (≈0,7 s). */
+  final VoidCallback? onLongPress;
 
   const _Focusable({
     this.onFocused,
+    this.onLongPress,
     required this.builder,
     required this.onPressed,
     this.focusNode,
@@ -436,6 +439,13 @@ class _Focusable extends StatefulWidget {
 
 class _FocusableState extends State<_Focusable> {
   bool _f = false;
+  DateTime? _down;
+  bool _longDone = false;
+
+  bool _isOk(KeyEvent e) =>
+      e.logicalKey == LogicalKeyboardKey.select ||
+      e.logicalKey == LogicalKeyboardKey.enter ||
+      e.logicalKey == LogicalKeyboardKey.numpadEnter;
 
   @override
   Widget build(BuildContext context) => Focus(
@@ -445,17 +455,29 @@ class _FocusableState extends State<_Focusable> {
       if (f) widget.onFocused?.call();
     },
     onKeyEvent: (_, e) {
-      if (e is KeyDownEvent &&
-          (e.logicalKey == LogicalKeyboardKey.select ||
-              e.logicalKey == LogicalKeyboardKey.enter ||
-              e.logicalKey == LogicalKeyboardKey.numpadEnter)) {
-        widget.onPressed();
+      if (!_isOk(e)) return KeyEventResult.ignored;
+      if (widget.onLongPress == null) {
+        if (e is KeyDownEvent) widget.onPressed();
         return KeyEventResult.handled;
       }
-      return KeyEventResult.ignored;
+      // Con pulsación larga: OK corto abre, OK mantenido ofrece quitar.
+      if (e is KeyDownEvent) {
+        _down = DateTime.now();
+        _longDone = false;
+      } else if (e is KeyRepeatEvent) {
+        if (!_longDone && _down != null && DateTime.now().difference(_down!).inMilliseconds > 650) {
+          _longDone = true;
+          widget.onLongPress!();
+        }
+      } else if (e is KeyUpEvent) {
+        if (!_longDone && _down != null) widget.onPressed();
+        _down = null;
+      }
+      return KeyEventResult.handled;
     },
     child: GestureDetector(
       onTap: widget.onPressed,
+      onLongPress: widget.onLongPress,
       child: AnimatedScale(
         scale: _f ? 1.1 : 1,
         duration: const Duration(milliseconds: 140),
@@ -650,6 +672,47 @@ class _ContinueCard extends StatefulWidget {
 class _ContinueCardState extends State<_ContinueCard> {
   Future<Uint8List?>? _banner;
 
+  /** Mantener OK sobre la tarjeta: preguntar si se quita de «Continuar viendo». */
+  Future<void> _askRemove(BuildContext context, String title) async {
+    final it = widget.item;
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (ctx) => Dialog(
+        backgroundColor: Pro.bg,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 340, vertical: 60),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 22, 24, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text('Quitar de Continuar viendo', style: Pro.title(24)),
+            const SizedBox(height: 10),
+            Text(title.isEmpty ? '${it['app'] ?? ''}' : title,
+                style: TextStyle(fontSize: 17, color: Pro.text.withValues(alpha: 0.75)),
+                maxLines: 2, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 18),
+            ProButton(
+              autofocus: true,
+              color: Pro.danger,
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Quitar', style: TextStyle(fontSize: 18)),
+            ),
+            const SizedBox(height: 8),
+            ProButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Cancelar', style: TextStyle(fontSize: 18)),
+            ),
+          ]),
+        ),
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await Native.widgets.invokeMethod('removeContinue', {'package': '${it['package']}', 'title': it['title']});
+    } catch (_) {}
+    if (context.mounted) await context.read<WidgetsModel>().refreshRecent();
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -670,6 +733,7 @@ class _ContinueCardState extends State<_ContinueCard> {
     return _Focusable(
       onFocused: widget.onFocused,
       focusNode: widget.focusNode,
+      onLongPress: () => _askRemove(context, title),
       // Abre lo que se estaba viendo (no solo la app); si no se puede, abre la app.
       onPressed: () async {
         bool ok = false;

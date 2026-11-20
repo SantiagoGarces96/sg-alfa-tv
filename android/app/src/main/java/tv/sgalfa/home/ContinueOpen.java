@@ -54,10 +54,7 @@ final class ContinueOpen {
     private static volatile long stageAt;
     private static final long STAGE_MS = 4500;
 
-    /** ¿Hay una apertura en curso? (el servicio vuelve a mirar la pantalla cada poco). */
-    static boolean active() {
-        return targetTitle != null && SystemClock.uptimeMillis() < targetUntil;
-    }
+
 
     /** Desde el launcher (hilo de fondo). Devuelve true si abrió algo. */
     static boolean open(Context c, String pkg, String title, String sub, long posMs) {
@@ -80,6 +77,7 @@ final class ContinueOpen {
         if (ok && title != null && !title.trim().isEmpty() && AutoClickService.isEnabled(c)) {
             targetPkg = pkg;
             targetTitle = title;
+            episode = null;
             targetUntil = SystemClock.uptimeMillis() + WAIT_MS;
             stage = 0;
             stageAt = SystemClock.uptimeMillis();
@@ -206,7 +204,7 @@ final class ContinueOpen {
             // En el historial el nombre puede salir distinto (traducido): el primero es lo último visto.
             AccessibilityNodeInfo first = firstWatched(root, 0);
             if (first != null && click(first)) {
-                targetTitle = null;
+                afterOpen();
                 return true;
             }
         }
@@ -277,7 +275,64 @@ final class ContinueOpen {
      * Lo llama el servicio de automatizaciones al leer la pantalla. Si se acaba de abrir una app
      * desde «Continuar viendo», toca el título guardado. Devuelve true si tocó.
      */
+    // ------------------------------------------------------------ episodio exacto (WiwyXuper / Hydra)
+
+    private static final Pattern EP = Pattern.compile("(?i)\\bT\\d+\\s*E(\\d+)\\b");
+    private static volatile String episode;
+    private static volatile long episodeUntil;
+    private static final Pattern RANGE = Pattern.compile("^(\\d+)\\s*-\\s*(\\d+)$");
+
+    /** Ya se abrió la serie: si la tarjeta trae episodio (« · T7 E28»), falta tocar ese número. */
+    private static void afterOpen() {
+        String t = targetTitle;
+        targetTitle = null;
+        Matcher m = t == null ? null : EP.matcher(t);
+        if (m != null && m.find()) {
+            episode = m.group(1);
+            episodeUntil = SystemClock.uptimeMillis() + 20_000;
+        }
+    }
+
+    static boolean active() {
+        return (targetTitle != null && SystemClock.uptimeMillis() < targetUntil)
+                || (episode != null && SystemClock.uptimeMillis() < episodeUntil);
+    }
+
+    /** En la ficha de la serie: abre el grupo (1-20, 21-36…) que tiene el episodio y lo toca. */
+    private static boolean pickEpisode(String pkg, List<AccessibilityNodeInfo> nodes) {
+        if (!pkg.equals(targetPkg) || SystemClock.uptimeMillis() > episodeUntil) {
+            episode = null;
+            return false;
+        }
+        int want = Integer.parseInt(episode);
+        AccessibilityNodeInfo exact = null, range = null;
+        boolean sawEpisodes = false;
+        for (AccessibilityNodeInfo n : nodes) {
+            String id = n.getViewIdResourceName();
+            CharSequence cs = n.getText();
+            if (id == null || cs == null || !id.endsWith(":id/mTextTitle")) continue;
+            String t = cs.toString().trim();
+            if (t.equals(episode)) exact = n;
+            Matcher r = RANGE.matcher(t);
+            if (r.matches()) {
+                sawEpisodes = true;
+                int a = Integer.parseInt(r.group(1)), b = Integer.parseInt(r.group(2));
+                if (want >= a && want <= b) range = n;
+            } else if (t.matches("\\d{1,4}")) {
+                sawEpisodes = true;
+            }
+        }
+        if (exact != null && click(exact)) {
+            episode = null;
+            return true;
+        }
+        if (range != null && click(range)) return true; // en el siguiente vistazo ya estará el número
+        if (sawEpisodes && range == null) episode = null; // es el que ya suena (▶) o no existe
+        return false;
+    }
+
     static boolean onScreen(AccessibilityService svc, String pkg, List<AccessibilityNodeInfo> nodes) {
+        if (episode != null && targetTitle == null) return pickEpisode(pkg, nodes);
         String want = targetTitle;
         if (want == null || !pkg.equals(targetPkg)) return false;
         if (SystemClock.uptimeMillis() > targetUntil) {
@@ -325,7 +380,7 @@ final class ContinueOpen {
         for (int i = 0; i < 6 && n != null; i++) {
             if (n.isClickable()) {
                 if (n.performAction(AccessibilityNodeInfo.ACTION_CLICK)) {
-                    targetTitle = null;
+                    afterOpen();
                     return true;
                 }
             }

@@ -256,7 +256,7 @@ final class ContinueWatch {
         for (AccessibilityNodeInfo n : nodes) {
             String id = n.getViewIdResourceName();
             CharSequence cs = n.getText();
-            if (id == null || cs == null || !id.startsWith("com.xuper.")) continue;
+            if (id == null || cs == null) continue;
             String t = cs.toString().trim();
             if (id.endsWith(":id/tvSeanson")) {
                 Matcher m = Pattern.compile("(\\d+)").matcher(t);
@@ -483,6 +483,21 @@ final class ContinueWatch {
 
     /** Como mucho las 2 últimas de cada app (la lista ya viene de más reciente a más antigua). */
     static final int PER_APP = 2;
+
+    /** Quitar una tarjeta (mantener OK en el inicio). */
+    static synchronized void remove(Context c, String pkg, String title) {
+        try {
+            JSONArray old = load(c), out = new JSONArray();
+            String t = title == null ? "" : title.trim();
+            for (int i = 0; i < old.length(); i++) {
+                JSONObject o = old.getJSONObject(i);
+                if (pkg.equals(o.optString("pkg")) && t.equals(o.optString("title", "").trim())) continue;
+                out.put(o);
+            }
+            store(c, out);
+        } catch (Exception ignored) {
+        }
+    }
 
     private static void store(Context c, JSONArray a) {
         JSONArray out = new JSONArray();

@@ -148,15 +148,22 @@ public class MediaListener extends NotificationListenerService {
                 || t.equals("spotify") || t.startsWith("advertisement ·") || t.startsWith("anuncio ·");
     }
 
-    /** Mientras suena un anuncio de Spotify la tele se queda en silencio; vuelve el sonido con la música. */
+    /** Volumen que había antes del anuncio (para devolverlo igual). */
+    private static int savedVolume = -1;
+
+    /**
+     * Mientras suena un anuncio de Spotify se baja el volumen a una cuarta parte (sin silencio total,
+     * que resulta incómodo); con la siguiente canción vuelve el volumen que había.
+     */
     private void checkAd(MediaController c) {
         try {
             if (c.getPackageName() == null || !c.getPackageName().startsWith("com.spotify")) return;
             android.media.AudioManager am = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
             if (isSpotifyAd(c)) {
                 if (!mutedByUs) {
-                    am.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC,
-                            android.media.AudioManager.ADJUST_MUTE, 0);
+                    int vol = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
+                    savedVolume = vol;
+                    am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, Math.max(1, vol / 4), 0);
                     mutedByUs = true;
                     Stats.add(this, Stats.ADS);
                     Stats.add(this, Stats.SPOTIFY);
@@ -172,10 +179,14 @@ public class MediaListener extends NotificationListenerService {
         if (!mutedByUs) return;
         try {
             android.media.AudioManager am = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
-            am.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC,
-                    android.media.AudioManager.ADJUST_UNMUTE, 0);
+            int now = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
+            // Si la persona cambió el volumen durante el anuncio, se respeta lo que puso.
+            if (savedVolume > 0 && now == Math.max(1, savedVolume / 4)) {
+                am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, savedVolume, 0);
+            }
         } catch (Exception ignored) {
         }
+        savedVolume = -1;
         mutedByUs = false;
     }
 

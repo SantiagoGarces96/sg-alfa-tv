@@ -69,9 +69,18 @@ public final class LauncherChannel {
                     });
                     break;
                 }
-                case "launch":
-                    result.success(launch(call.arguments()));
+                case "launch": {
+                    String pkg = call.arguments();
+                    PackageManager pm0 = activity.getPackageManager();
+                    if (pm0.getLeanbackLaunchIntentForPackage(pkg) == null && pm0.getLaunchIntentForPackage(pkg) == null) {
+                        result.success(false);
+                        break;
+                    }
+                    // Recién encendida la tele: esperar a que haya internet para que la app no falle.
+                    NetGate.whenOnline(activity, pkg, () -> launch(pkg));
+                    result.success(true);
                     break;
+                }
                 case "appInfo":
                     result.success(start(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                             Uri.fromParts("package", (String) call.arguments(), null))));
