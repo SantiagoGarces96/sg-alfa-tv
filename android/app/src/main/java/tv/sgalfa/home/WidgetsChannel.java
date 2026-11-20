@@ -347,7 +347,8 @@ public final class WidgetsChannel {
                 String pkg = c.getPackageName();
                 if ("com.apps.livetv".equals(pkg) || "com.android.bluetooth".equals(pkg)
                         || "com.android.tv".equals(pkg) || "com.google.android.tv".equals(pkg)) continue;
-                if (first == null) first = c;
+                // Una app abierta sin nada cargado (p. ej. Spotify recién abierto) no tapa la última canción.
+                if (first == null && c.getMetadata() != null) first = c;
                 PlaybackState st = c.getPlaybackState();
                 if (st != null && st.getState() == PlaybackState.STATE_PLAYING) return c;
             }

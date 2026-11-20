@@ -78,6 +78,7 @@ final class ContinueWatch {
     /** Apps solo de música: ya salen arriba en «lo que suena», no en «Continuar viendo». */
     static boolean musicOnly(String pkg) {
         return pkg != null && (pkg.startsWith("com.spotify") || pkg.equals("com.google.android.youtube.tvmusic")
+                || pkg.startsWith("io.gh.reisxd.tizentube") // TizenTube se usa para música: va en «lo que suena»
                 || pkg.equals("com.google.android.apps.youtube.music") || pkg.startsWith("deezer.android")
                 || pkg.startsWith("com.amazon.mp3") || pkg.startsWith("com.aspiro.tidal")
                 || pkg.startsWith("com.soundcloud") || pkg.startsWith("com.pandora")
