@@ -80,6 +80,12 @@ class DashTopBar extends StatelessWidget {
     final today = context.watch<TodayModel>();
     final inputs = context.watch<WidgetsModel>().inputs;
     final hasInputs = inputs.isNotEmpty;
+    // Botones de la derecha (lupa, entradas en teles, escudo, wifi, ajustes) y, a su izquierda,
+    // el reproductor completo (con pasar/devolver canción) y el clima. La hora se achica para que quepa.
+    final circlesLeft = hasInputs ? 1090.0 : 1177.0;
+    final mediaW = hasInputs ? 400.0 : 425.0;
+    final mediaLeft = circlesLeft - 17 - mediaW;
+    final weatherLeft = mediaLeft - 17 - 214;
     return Nav.arrows(
       down: Nav.belowTopBar,
       child: SizedBox(
@@ -87,27 +93,27 @@ class DashTopBar extends StatelessWidget {
         child: Stack(
           children: [
             Positioned(
-              left: 95 * u,
+              left: (hasInputs ? 60 : 95) * u,
               top: 47 * u,
               height: 82 * u,
               child: _ClockDate(u: u),
             ),
             Positioned(
-              left: 572 * u,
+              left: weatherLeft * u,
               top: 47 * u,
               width: 214 * u,
               height: 82 * u,
               child: _WeatherCard(u: u),
             ),
             Positioned(
-              left: 803 * u,
+              left: mediaLeft * u,
               top: 47 * u,
-              width: (hasInputs ? 251 : 338) * u,
+              width: mediaW * u,
               height: 82 * u,
-              child: _MediaCard(u: u, compact: hasInputs),
+              child: _MediaCard(u: u),
             ),
             Positioned(
-              left: (hasInputs ? 1090 : 1177) * u,
+              left: circlesLeft * u,
               top: 50 * u,
               child: Row(
                 children: [
@@ -193,9 +199,9 @@ class _ClockDateState extends State<_ClockDate> {
     final time = hora12(_now);
     final small = TextStyle(
       color: Colors.white.withValues(alpha: 0.9),
-      fontSize: 17 * u,
+      fontSize: 13 * u,
       fontWeight: FontWeight.w500,
-      letterSpacing: 2 * u,
+      letterSpacing: 1.2 * u,
       shadows: _shadow,
     );
     return Row(
@@ -205,38 +211,38 @@ class _ClockDateState extends State<_ClockDate> {
           time,
           style: TextStyle(
             color: Colors.white,
-            fontSize: 74 * u,
+            fontSize: 56 * u,
             fontWeight: FontWeight.w300,
             height: 1,
             shadows: _shadow,
           ),
         ),
-        SizedBox(width: 8 * u),
+        SizedBox(width: 6 * u),
         Padding(
-          padding: EdgeInsets.only(top: 22 * u),
+          padding: EdgeInsets.only(top: 16 * u),
           child: Text(
             ampm(_now),
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.9),
-              fontSize: 22 * u,
+              fontSize: 17 * u,
               fontWeight: FontWeight.w400,
               shadows: _shadow,
             ),
           ),
         ),
-        SizedBox(width: 24 * u),
+        SizedBox(width: 14 * u),
         Container(
           width: 1.5 * u,
-          height: 50 * u,
+          height: 40 * u,
           color: Colors.white.withValues(alpha: 0.4),
         ),
-        SizedBox(width: 22 * u),
+        SizedBox(width: 14 * u),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(_days[_now.weekday - 1], style: small),
-            SizedBox(height: 14 * u),
+            SizedBox(height: 8 * u),
             Text('${_now.day} DE ${_months[_now.month - 1]}', style: small),
           ],
         ),
