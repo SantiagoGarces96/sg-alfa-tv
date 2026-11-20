@@ -465,7 +465,8 @@ class _FocusableState extends State<_Focusable> {
         _down = DateTime.now();
         _longDone = false;
       } else if (e is KeyRepeatEvent) {
-        if (!_longDone && _down != null && DateTime.now().difference(_down!).inMilliseconds > 650) {
+        // La repetición solo llega tras mantener el botón (≈0,5 s): eso ya es pulsación larga.
+        if (!_longDone && _down != null) {
           _longDone = true;
           widget.onLongPress!();
         }

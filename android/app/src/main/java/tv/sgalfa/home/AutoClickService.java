@@ -45,7 +45,10 @@ public class AutoClickService extends AccessibilityService {
     /** ¿Está activado el servicio en Accesibilidad? */
     public static boolean isEnabled(Context c) {
         String list = Settings.Secure.getString(c.getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-        return list != null && list.contains(c.getPackageName() + "/" + AutoClickService.class.getName());
+        if (list == null) return false;
+        // Android puede guardarlo con el nombre completo o abreviado («paquete/.AutoClickService»).
+        return list.contains(c.getPackageName() + "/" + AutoClickService.class.getName())
+                || list.contains(c.getPackageName() + "/." + AutoClickService.class.getSimpleName());
     }
 
     static List<Macros.Macro> load(Context c) {
