@@ -275,6 +275,7 @@ public class DnsBlockVpnService extends VpnService {
                     blocklist = loadBlocklist();
                 }
                 final String host = qname(query);
+                trace(host);
                 if (host != null && isBlocked(host)) {
                     Stats.add(this, Stats.ADS);
                     if (host.contains("spotify")) Stats.add(this, Stats.SPOTIFY);
@@ -419,6 +420,28 @@ public class DnsBlockVpnService extends VpnService {
             "nflxso.net", "primevideo.com", "aiv-cdn.net", "disneyplus.com", "dssott.com", "bamgrid.com",
             "max.com", "hbomax.com", "spotify.com", "scdn.co", "mp4upload.com", "uqload.com", "crunchyroll.com",
             "android.com", "gstatic.com", "googleapis.com", "sgalfa", "github.com", "githubusercontent.com"};
+
+    private long traceCheck = 0;
+    private java.io.File traceFile;
+
+    /** Diagnóstico: si existe files/dns_trace, apunta cada dominio pedido (para encontrar servidores de anuncios). */
+    private void trace(String host) {
+        if (host == null) return;
+        try {
+            long now = android.os.SystemClock.uptimeMillis();
+            if (now - traceCheck > 5000) {
+                traceCheck = now;
+                java.io.File d = getExternalFilesDir(null);
+                java.io.File flag = d == null ? null : new java.io.File(d, "dns_trace");
+                traceFile = flag != null && flag.exists() ? new java.io.File(d, "dns_trace.txt") : null;
+            }
+            if (traceFile == null || traceFile.length() > 200_000) return;
+            try (java.io.FileWriter w = new java.io.FileWriter(traceFile, true)) {
+                w.write(System.currentTimeMillis() / 1000 + " " + host + (isBlocked(host) ? " BLOQ" : "") + "\n");
+            }
+        } catch (Exception ignored) {
+        }
+    }
 
     private boolean isBlocked(String host) {
         Set<String> list = blocklist;
