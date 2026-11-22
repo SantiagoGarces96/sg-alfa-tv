@@ -504,7 +504,7 @@ public class AutoClickService extends AccessibilityService {
             // Se cambió de app (o se volvió al inicio): guardar ya lo que se veía en la anterior.
             if (lastFrontPkg != null && !lastFrontPkg.equals(pkg)) ContinueWatch.onLeave(this, lastFrontPkg);
             lastFrontPkg = pkg;
-            if (MPLAY.equals(pkg)) startAdWatch(); // Mercado Play: vigilar sus anuncios dentro del video
+            // (Sin vigilancia por capturas en Mercado Play: capturar su video protegido reinicia el deco.)
         }
         if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && !cleaning && !pkg.equals(getPackageName())) {
             watchWindow(pkg, event.getClassName());

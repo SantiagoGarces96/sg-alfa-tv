@@ -447,6 +447,22 @@ final class ContinueWatch {
     }
 
     private static final Map<String, String> xuperSaved = new HashMap<>();
+
+    /**
+     * Apps con video protegido (DRM): en decos y teles con chip Broadcom/Realtek, capturar la pantalla
+     * mientras suena tumba el sistema de imagen y el equipo se reinicia. En ellas nunca se captura:
+     * la tarjeta usa la portada de la app.
+     */
+    private static final java.util.Set<String> NO_SHOT = new java.util.HashSet<>(java.util.Arrays.asList(
+            "com.mercadolibre.android.mplay_tv", "com.netflix.ninja", "com.netflix.mediaclient",
+            "com.disney.disneyplus", "com.amazon.amazonvideo.livingroom", "com.hbo.hbonow", "com.wbd.stream",
+            "com.vix.vixplus", "com.cbs.ott", "com.paramount.android.pplus", "com.apple.atve.androidtv.appletv",
+            "com.google.android.youtube.tv", "com.google.android.videos", "com.star.plus", "com.rcntv.rcntv",
+            "com.fylmotv2", "com.crunchyroll.crunchyroid", "com.plutotv.tv", "tv.pluto.android"));
+
+    static boolean canShoot(String pkg) {
+        return pkg != null && !NO_SHOT.contains(pkg);
+    }
     private static final Map<String, Long> soundAt = new HashMap<>();
 
     /**
@@ -473,7 +489,7 @@ final class ContinueWatch {
 
     /** Guarda la tarjeta con una imagen del momento (si se puede). */
     private static void capture(AccessibilityService svc, String pkg, String title) {
-        if (Build.VERSION.SDK_INT >= 30) {
+        if (Build.VERSION.SDK_INT >= 30 && canShoot(pkg)) {
             try {
                 svc.takeScreenshot(Display.DEFAULT_DISPLAY, worker, new AccessibilityService.TakeScreenshotCallback() {
                     @Override
@@ -621,7 +637,7 @@ final class ContinueWatch {
         final String fTitle = title, fSub = sub;
         final long fPos = pos, fDur = dur;
 
-        if (Build.VERSION.SDK_INT >= 30) {
+        if (Build.VERSION.SDK_INT >= 30 && canShoot(pkg)) {
             try {
                 svc.takeScreenshot(Display.DEFAULT_DISPLAY, worker, new AccessibilityService.TakeScreenshotCallback() {
                     @Override
@@ -929,7 +945,7 @@ final class ContinueWatch {
         long now = SystemClock.uptimeMillis();
         Long li = lastImport.get(pkg);
         boolean shot = li == null || now - li > 5 * 60_000;
-        if (shot && Build.VERSION.SDK_INT >= 30) {
+        if (shot && Build.VERSION.SDK_INT >= 30 && canShoot(pkg)) {
             lastImport.put(pkg, now);
             try {
                 svc.takeScreenshot(Display.DEFAULT_DISPLAY, worker, new AccessibilityService.TakeScreenshotCallback() {
