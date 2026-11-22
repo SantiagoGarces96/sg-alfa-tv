@@ -98,6 +98,9 @@ class WidgetsModel extends ChangeNotifier with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       _freeTimer?.cancel();
       _refreshAll();
+      // Lo que la app guardó al salir (con su imagen) llega un instante después: volver a mirar.
+      Future.delayed(const Duration(milliseconds: 1500), refreshRecent);
+      Future.delayed(const Duration(seconds: 4), refreshRecent);
     } else if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
       // Teles con poca memoria (1,5 GB): si el launcher lleva un minuto oculto (viendo TizenTube,
       // una película…) suelta las imágenes en memoria para que esa app no se cierre por falta de RAM.

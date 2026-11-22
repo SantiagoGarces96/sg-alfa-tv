@@ -374,6 +374,8 @@ public class AutoClickService extends AccessibilityService {
             "com.google.android.apps.nexuslauncher", "com.android.launcher3", "com.google.android.tvlauncher",
             "com.google.android.apps.tv.launcherx", "com.spocky.projengmenu"));
     private static final long SETTLE_MS = 600;
+    private long lastAudioCheck = 0;
+    private boolean playingNow = false;
     private long lastScan;
     private boolean scanQueued;
     private final Runnable queuedScan = () -> {
@@ -398,13 +400,22 @@ public class AutoClickService extends AccessibilityService {
         // Leer la pantalla como mucho una vez cada 0,6 s: así las apps van fluidas al deslizar.
         long now = SystemClock.uptimeMillis();
         boolean windowChanged = event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED;
-        if (cleaning || (windowChanged && now - lastScan > 250) || now - lastScan >= SETTLE_MS) {
+        // Con video o música sonando, la pantalla cambia sin parar (subtítulos, barra de tiempo): mirar
+        // con menos frecuencia para que la app vaya fluida. Los cambios de ventana se miran al momento.
+        long settle = SETTLE_MS;
+        if (!windowChanged && now - lastAudioCheck > 2000) {
+            lastAudioCheck = now;
+            android.media.AudioManager am = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+            playingNow = am != null && am.isMusicActive();
+        }
+        if (playingNow && !windowChanged) settle = 2000;
+        if (cleaning || (windowChanged && now - lastScan > 250) || now - lastScan >= settle) {
             handler.removeCallbacks(queuedScan);
             scanQueued = false;
             scan();
         } else if (!scanQueued) {
             scanQueued = true;
-            handler.postDelayed(queuedScan, SETTLE_MS - (now - lastScan));
+            handler.postDelayed(queuedScan, Math.max(0, settle - (now - lastScan)));
         }
     }
 

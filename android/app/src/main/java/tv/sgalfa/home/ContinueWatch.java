@@ -152,7 +152,54 @@ final class ContinueWatch {
     private static final Map<String, String> picked = new HashMap<>();
     private static final Map<String, Long> pickedAt = new HashMap<>();
 
+    // ------------------------------------------------------------ Anime Cast al momento
+
+    private static final String ANIMECAST = "csc.app.anime.cast";
+    private static volatile String acAnime;      // anime elegido (de su tarjeta)
+    private static volatile String acSaved;      // último «Anime - Episodio N» guardado
+    private static final Pattern AC_EP = Pattern.compile("(?i)^episodio\\s*(\\d+)$");
+
+    private static String textById(AccessibilityNodeInfo n, String idSuffix, int depth) {
+        if (n == null || depth > 12) return null;
+        String id = n.getViewIdResourceName();
+        if (id != null && id.endsWith(idSuffix) && n.getText() != null) return n.getText().toString().trim();
+        for (int i = 0; i < n.getChildCount(); i++) {
+            String r = textById(n.getChild(i), idSuffix, depth + 1);
+            if (r != null) return r;
+        }
+        return null;
+    }
+
+    /**
+     * Anime Cast: al entrar a un episodio se guarda la tarjeta en el acto (antes solo al volver al inicio
+     * de la app). El nombre del anime sale de la tarjeta que se tocó; el episodio, de la barra de arriba.
+     */
+    private static boolean animeCastNow(AccessibilityService svc, String pkg, List<AccessibilityNodeInfo> nodes) {
+        if (!ANIMECAST.equals(pkg) || acAnime == null) return false;
+        for (AccessibilityNodeInfo n : nodes) {
+            CharSequence t = n.getText();
+            if (t == null || n.getViewIdResourceName() != null) continue; // el título de la barra no tiene id
+            Matcher m = AC_EP.matcher(t.toString().trim());
+            if (!m.matches()) continue;
+            String title = acAnime + " - Episodio " + m.group(1);
+            if (title.equals(acSaved)) return false;
+            acSaved = title;
+            capture(svc, pkg, title);
+            return true;
+        }
+        return false;
+    }
+
     static void onClick(Context c, String pkg, AccessibilityNodeInfo source, List<CharSequence> eventText) {
+        try {
+            if (ANIMECAST.equals(pkg) && source != null) {
+                String name = textById(source, ":id/episodio_anime", 0);
+                if (name == null) name = textById(source, ":id/anime_nombre", 0);
+                if (name == null) name = textById(source, ":id/anime_titulo", 0);
+                if (name != null && name.length() > 1) acAnime = name;
+            }
+        } catch (Exception ignored) {
+        }
         try {
             if (xuper(pkg) && source != null) {
                 String id = source.getViewIdResourceName();
@@ -416,6 +463,8 @@ final class ContinueWatch {
             strong.remove(pkg);
             return;
         }
+        // Anime Cast dentro de un episodio: guardar ya, sin esperar a volver a su inicio.
+        if (animeCastNow(svc, pkg, nodes)) return;
         // La propia app tiene su lista de «Continuar viendo» (Anime Cast): se lee tal cual.
         if (importList(svc, pkg, nodes)) return;
         long now = SystemClock.uptimeMillis();
