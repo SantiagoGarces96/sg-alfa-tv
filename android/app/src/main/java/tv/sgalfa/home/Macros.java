@@ -110,12 +110,41 @@ public final class Macros {
     private static final Pattern NON_WORD = Pattern.compile("[^\\p{L}\\p{N} ]");
     private static final Pattern SPACES = Pattern.compile("\\s+");
 
+    private static final java.util.Map<String, String> NORM = new java.util.HashMap<>();
+
+    /** Minúsculas, sin tildes ni signos. Con memoria: se llama miles de veces por pantalla. */
     public static String normalize(String s) {
         if (s == null) return "";
-        // Sin tildes: «versión» y «version» cuentan igual.
-        String lower = java.text.Normalizer.normalize(s.toLowerCase(Locale.ROOT), java.text.Normalizer.Form.NFD)
-                .replaceAll("\\p{M}+", "");
-        return SPACES.matcher(NON_WORD.matcher(lower).replaceAll(" ")).replaceAll(" ").trim();
+        synchronized (NORM) {
+            String hit = NORM.get(s);
+            if (hit != null) return hit;
+        }
+        StringBuilder b = new StringBuilder(s.length());
+        boolean space = true;
+        for (int i = 0; i < s.length(); i++) {
+            char c = Character.toLowerCase(s.charAt(i));
+            switch (c) {
+                case 'á': case 'à': case 'ä': case 'â': c = 'a'; break;
+                case 'é': case 'è': case 'ë': case 'ê': c = 'e'; break;
+                case 'í': case 'ì': case 'ï': case 'î': c = 'i'; break;
+                case 'ó': case 'ò': case 'ö': case 'ô': c = 'o'; break;
+                case 'ú': case 'ù': case 'ü': case 'û': c = 'u'; break;
+                default: break;
+            }
+            if (Character.isLetterOrDigit(c) || c == 'ñ') {
+                b.append(c);
+                space = false;
+            } else if (!space) {
+                b.append(' ');
+                space = true;
+            }
+        }
+        String out = b.toString().trim();
+        synchronized (NORM) {
+            if (NORM.size() > 3000) NORM.clear();
+            NORM.put(s, out);
+        }
+        return out;
     }
 
     private static boolean appMatches(Macro m, String pkg) {
