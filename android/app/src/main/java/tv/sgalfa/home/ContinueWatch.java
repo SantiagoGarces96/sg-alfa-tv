@@ -54,7 +54,7 @@ final class ContinueWatch {
 
     private static final Pattern TIME = Pattern.compile("^[-\\d:\\s/.]+$");
     private static final Pattern EPISODE = Pattern.compile(
-            "(episodio|cap[ií]tulo|\\bep\\.?\\s*\\d|temporada|season|episode|\\bt\\d+\\s*e\\d+)", Pattern.CASE_INSENSITIVE);
+            "((episodio|cap[ií]tulo|temporada|season|episode)\\s*\\d|\\bep\\.?\\s*\\d|\\bt\\d+\\s*e\\d+)", Pattern.CASE_INSENSITIVE);
     /** «Nombre - Episodio 8», «Nombre · Cap. 3», «Nombre T1 E4»: nombre de la serie + episodio. */
     private static final Pattern NAMED = Pattern.compile(
             "^(.{2,60}?)\\s*[-–—·:|]\\s*((episodio|cap[ií]tulo|ep\\.?|temporada|season|episode|t\\d+).*)$", Pattern.CASE_INSENSITIVE);
