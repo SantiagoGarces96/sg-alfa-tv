@@ -128,4 +128,3 @@ mediatailor.us-east-1.amazonaws.com
 mediatailor.us-west-2.amazonaws.com
 mediatailor.sa-east-1.amazonaws.com
 imasdk.googleapis.com
-tailor-ssai-vod.play.mlstatic.com
