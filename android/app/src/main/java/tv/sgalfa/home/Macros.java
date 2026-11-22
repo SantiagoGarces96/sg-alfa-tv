@@ -114,7 +114,7 @@ public final class Macros {
         if (s == null) return "";
         // Sin tildes: «versión» y «version» cuentan igual.
         String lower = java.text.Normalizer.normalize(s.toLowerCase(Locale.ROOT), java.text.Normalizer.Form.NFD)
-                .replaceAll("\p{M}+", "");
+                .replaceAll("\\p{M}+", "");
         return SPACES.matcher(NON_WORD.matcher(lower).replaceAll(" ")).replaceAll(" ").trim();
     }
 
