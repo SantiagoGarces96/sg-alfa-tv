@@ -112,7 +112,9 @@ public final class Macros {
 
     public static String normalize(String s) {
         if (s == null) return "";
-        String lower = s.toLowerCase(Locale.ROOT);
+        // Sin tildes: «versión» y «version» cuentan igual.
+        String lower = java.text.Normalizer.normalize(s.toLowerCase(Locale.ROOT), java.text.Normalizer.Form.NFD)
+                .replaceAll("\p{M}+", "");
         return SPACES.matcher(NON_WORD.matcher(lower).replaceAll(" ")).replaceAll(" ").trim();
     }
 
@@ -235,6 +237,12 @@ public final class Macros {
                         Arrays.asList("valora", "califica", "puntúa", "puntua", "reseña", "rate this app")),
                 button("tpl-actualizar", "Aviso de actualización → Más tarde", "Más tarde", UPDATE_WORDS),
                 // Avisos de actualizar de las apps (WiwyXuper, Xuper Hydra…): se ignoran solos.
+                // «Versión no compatible detectada» (Xuper Hydra y apps parecidas): pantalla que tapa todo
+                // y pide actualizar. Se cierra con «Atrás» para seguir usando la app.
+                new Macro("tpl-upd-incompatible", "«Versión no compatible» → cerrar", true, "TEXT",
+                        "version no compatible", Collections.emptyList(), "BACK", "", 0),
+                new Macro("tpl-upd-descontinuada", "«La versión actual fue descontinuada» → cerrar", true, "TEXT",
+                        "version actual fue descontinuada", Collections.emptyList(), "BACK", "", 0),
                 button("tpl-upd-cancelar", "Aviso de actualización → Cancelar", "Cancelar", UPDATE_WORDS),
                 button("tpl-upd-ahora-no", "Aviso de actualización → Ahora no", "Ahora no", UPDATE_WORDS),
                 button("tpl-upd-omitir", "Aviso de actualización → Omitir", "Omitir", UPDATE_WORDS),

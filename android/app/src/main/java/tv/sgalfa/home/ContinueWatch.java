@@ -320,7 +320,7 @@ final class ContinueWatch {
     private static final String WATCH_PREFS = "sgalfa_watch_ms";
 
     private static boolean xuper(String pkg) {
-        return pkg != null && (pkg.startsWith("com.xuper.") || pkg.startsWith("com.tivo.hydra"));
+        return pkg != null && (pkg.startsWith("com.xuper.") || pkg.equals("com.android.mgstv") || pkg.contains("hydra") || pkg.contains("xuper"));
     }
 
     /**

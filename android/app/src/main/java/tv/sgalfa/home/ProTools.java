@@ -332,7 +332,7 @@ final class ProTools {
             {"com.teamsmart.videomanager.tv", "SmartTube"},
             {"com.spotify.tv.android", "Spotify"},
             {"com.xuper.wiwyxuper", "WiwyXuper"},
-            {"com.tivo.hydra.app", "Xuper Hydra"},
+            {"com.android.mgstv", "Xuper Hydra"},
             {"csc.app.anime.cast", "Anime Cast"},
             {"aplicaciones.paleta.legionanimefull", "Legion Anime"},
     };

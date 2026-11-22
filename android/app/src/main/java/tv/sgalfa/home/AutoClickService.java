@@ -57,14 +57,14 @@ public class AutoClickService extends AccessibilityService {
         if (list == null) return new ArrayList<>(Macros.templates());
         // Una sola vez: añadir el reintento automático de «sin conexión al encender» a quien ya tenía su lista.
         SharedPreferences p = c.getSharedPreferences(PREFS, MODE_PRIVATE);
-        if (!p.getBoolean("upd_added", false)) {
+        if (!p.getBoolean("upd2_added", false)) {
             // Una vez: añadir las reglas nuevas de «ignorar actualización».
             java.util.Set<String> have0 = new java.util.HashSet<>();
             for (Macros.Macro m : list) have0.add(m.id);
             for (Macros.Macro m : Macros.templates()) {
                 if (m.id.startsWith("tpl-upd-") && !have0.contains(m.id)) list.add(m);
             }
-            p.edit().putString(KEY_MACROS, Macros.encode(list)).putBoolean("upd_added", true).apply();
+            p.edit().putString(KEY_MACROS, Macros.encode(list)).putBoolean("upd2_added", true).apply();
         }
         if (!p.getBoolean("retry_added", false)) {
             java.util.Set<String> have = new java.util.HashSet<>();
