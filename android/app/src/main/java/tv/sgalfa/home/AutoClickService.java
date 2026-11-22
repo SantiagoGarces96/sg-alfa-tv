@@ -57,6 +57,15 @@ public class AutoClickService extends AccessibilityService {
         if (list == null) return new ArrayList<>(Macros.templates());
         // Una sola vez: añadir el reintento automático de «sin conexión al encender» a quien ya tenía su lista.
         SharedPreferences p = c.getSharedPreferences(PREFS, MODE_PRIVATE);
+        if (!p.getBoolean("upd_added", false)) {
+            // Una vez: añadir las reglas nuevas de «ignorar actualización».
+            java.util.Set<String> have0 = new java.util.HashSet<>();
+            for (Macros.Macro m : list) have0.add(m.id);
+            for (Macros.Macro m : Macros.templates()) {
+                if (m.id.startsWith("tpl-upd-") && !have0.contains(m.id)) list.add(m);
+            }
+            p.edit().putString(KEY_MACROS, Macros.encode(list)).putBoolean("upd_added", true).apply();
+        }
         if (!p.getBoolean("retry_added", false)) {
             java.util.Set<String> have = new java.util.HashSet<>();
             for (Macros.Macro m : list) have.add(m.id);
@@ -284,6 +293,11 @@ public class AutoClickService extends AccessibilityService {
         // En apps de chat, las reglas que dependen de palabras en pantalla (p. ej. «Cerrar» si dice
         // «anuncio») no se usan; los botones exactos («Saltar anuncio») sí.
         if (chatApp(s.pkg) && (!m.context.isEmpty() || "TEXT".equals(m.trigger))) return null;
+        // Ignorar actualizaciones solo dentro de las apps, nunca donde se instala a propósito.
+        if (Macros.isUpdateRule(m) && s.pkg != null && (s.pkg.equals("com.android.vending")
+                || s.pkg.contains("packageinstaller") || s.pkg.contains("settings") || s.pkg.equals(getPackageName()))) return null;
+        // La lista de notificaciones que abre la persona (WiwyXuper) no es un aviso: tiene «Cerrar».
+        if (Macros.isUpdateRule(m) && s.brief.toLowerCase(java.util.Locale.ROOT).contains("notificaciones")) return null;
         if ("BUTTON".equals(m.trigger)) {
             for (AccessibilityNodeInfo n : s.nodes) {
                 String l = label(n);

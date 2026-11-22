@@ -185,6 +185,14 @@ public final class Macros {
     private static final List<String> AD_WORDS = Arrays.asList(
             "anuncio", "publicidad", "patrocinado", "advertisement", "sponsored", "promocion", "promoción");
 
+    static final List<String> UPDATE_WORDS = Arrays.asList("actualiza", "nueva versión", "nueva version",
+            "update available", "new version", "actualización disponible", "actualizacion disponible");
+
+    /** Reglas de «ignorar actualización» (no se usan en Play Store, instalador ni ajustes). */
+    static boolean isUpdateRule(Macro m) {
+        return m.id.startsWith("tpl-upd-") || m.id.equals("tpl-actualizar");
+    }
+
     private static Macro button(String id, String name, String text, List<String> ctx) {
         return new Macro(id, name, true, "BUTTON", text, ctx, "CLICK", "", 0);
     }
@@ -225,8 +233,15 @@ public final class Macros {
                         Arrays.asList("sigues ahí", "sigues ahi", "estás ahí", "estas ahi")),
                 button("tpl-valorar", "«Valora la app» → Ahora no", "Ahora no",
                         Arrays.asList("valora", "califica", "puntúa", "puntua", "reseña", "rate this app")),
-                button("tpl-actualizar", "Aviso de actualización → Más tarde", "Más tarde",
-                        Arrays.asList("actualiza", "nueva versión", "nueva version", "update available")),
+                button("tpl-actualizar", "Aviso de actualización → Más tarde", "Más tarde", UPDATE_WORDS),
+                // Avisos de actualizar de las apps (WiwyXuper, Xuper Hydra…): se ignoran solos.
+                button("tpl-upd-cancelar", "Aviso de actualización → Cancelar", "Cancelar", UPDATE_WORDS),
+                button("tpl-upd-ahora-no", "Aviso de actualización → Ahora no", "Ahora no", UPDATE_WORDS),
+                button("tpl-upd-omitir", "Aviso de actualización → Omitir", "Omitir", UPDATE_WORDS),
+                button("tpl-upd-ignorar", "Aviso de actualización → Ignorar", "Ignorar", UPDATE_WORDS),
+                button("tpl-upd-later", "Update → Later (inglés)", "Later", UPDATE_WORDS),
+                button("tpl-upd-cancel", "Update → Cancel (inglés)", "Cancel", UPDATE_WORDS),
+                button("tpl-upd-no", "Aviso de actualización → No", "No", UPDATE_WORDS),
                 // Al encender la tele, apps como TizenTube abren antes de que el wifi conecte y se quedan
                 // en «Can't connect right now». Se reintenta solo (cada pocos segundos) hasta que haya internet.
                 new Macro("tpl-retry", "Sin conexión al encender → Try again (TizenTube)", true, "BUTTON",
