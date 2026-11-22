@@ -697,13 +697,15 @@ class _ContinueCardState extends State<_ContinueCard> {
   /** Mantener OK sobre la tarjeta: preguntar si se quita de «Continuar viendo». */
   Future<void> _askRemove(BuildContext context, String title) async {
     final it = widget.item;
-    final opened = DateTime.now();
-    // ¿Sigue mantenido el OK con el que se abrió la ventana?
-    bool okHeld() {
-      final k = HardwareKeyboard.instance.logicalKeysPressed;
-      return k.contains(LogicalKeyboardKey.select) || k.contains(LogicalKeyboardKey.enter) ||
-          k.contains(LogicalKeyboardKey.numpadEnter);
+    // El OK con el que se abrió la ventana (mantenido) no cuenta: se espera a que se suelte.
+    var released = !(HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.select) ||
+        HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.enter));
+    bool onKey(KeyEvent e) {
+      if (e is KeyUpEvent) released = true;
+      return false;
     }
+    HardwareKeyboard.instance.addHandler(onKey);
+    bool okHeld() => !released;
 
     final ok = await showDialog<bool>(
       context: context,
@@ -725,7 +727,7 @@ class _ContinueCardState extends State<_ContinueCard> {
               color: Pro.danger,
               // El OK que se mantuvo para abrir esta ventana no cuenta: hay que soltarlo y pulsar de nuevo.
               onPressed: () {
-                if (DateTime.now().difference(opened).inMilliseconds < 600 || okHeld()) return;
+                if (okHeld()) return;
                 Navigator.of(ctx).pop(true);
               },
               child: const Text('Quitar', style: TextStyle(fontSize: 18)),
@@ -734,7 +736,7 @@ class _ContinueCardState extends State<_ContinueCard> {
             ProButton(
               autofocus: true, // por defecto «Cancelar»: así un OK de más nunca borra nada
               onPressed: () {
-                if (DateTime.now().difference(opened).inMilliseconds < 600 || okHeld()) return;
+                if (okHeld()) return;
                 Navigator.of(ctx).pop(false);
               },
               child: const Text('Cancelar', style: TextStyle(fontSize: 18)),
@@ -743,6 +745,7 @@ class _ContinueCardState extends State<_ContinueCard> {
         ),
       ),
     );
+    HardwareKeyboard.instance.removeHandler(onKey);
     if (ok != true || !context.mounted) return;
     try {
       await Native.widgets.invokeMethod('removeContinue', {'package': '${it['package']}', 'title': it['title']});
