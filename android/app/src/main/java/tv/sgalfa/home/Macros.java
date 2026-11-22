@@ -200,7 +200,7 @@ public final class Macros {
                 button("tpl-seguir", "Seguir viendo", "Seguir viendo"),
                 button("tpl-cont-viendo", "Continuar viendo", "Continuar viendo"),
                 button("tpl-si", "¿Sigues viendo? → Sí", "Sí",
-                        Arrays.asList("sigues viendo", "continuar viendo", "deseas continuar")),
+                        Arrays.asList("sigues viendo", "continuar viendo", "deseas continuar", "seguir mirando", "seguir viendo")),
                 button("tpl-saltar", "Saltar anuncio", "Saltar anuncio"),
                 button("tpl-omitir", "Omitir anuncio", "Omitir anuncio"),
                 button("tpl-skip", "Skip ad (inglés)", "Skip ad"),

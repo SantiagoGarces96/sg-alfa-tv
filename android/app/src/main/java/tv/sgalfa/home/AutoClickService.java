@@ -274,7 +274,16 @@ public class AutoClickService extends AccessibilityService {
     }
 
     /** Devuelve el botón encontrado, o el propio root si es un disparador de texto; null si no se cumple. */
+    /** Apps con chat en vivo: lo que escribe la gente («ese anuncio…») no es un aviso de la app. */
+    static boolean chatApp(String pkg) {
+        return pkg != null && (pkg.startsWith("com.kick.") || pkg.startsWith("tv.twitch.")
+                || pkg.equals("com.google.android.youtube.tv.chat"));
+    }
+
     private Object evaluate(Macros.Macro m, Snapshot s) {
+        // En apps de chat, las reglas que dependen de palabras en pantalla (p. ej. «Cerrar» si dice
+        // «anuncio») no se usan; los botones exactos («Saltar anuncio») sí.
+        if (chatApp(s.pkg) && (!m.context.isEmpty() || "TEXT".equals(m.trigger))) return null;
         if ("BUTTON".equals(m.trigger)) {
             for (AccessibilityNodeInfo n : s.nodes) {
                 String l = label(n);
@@ -297,6 +306,7 @@ public class AutoClickService extends AccessibilityService {
 
     /** Si en pantalla hay algo con pinta de anuncio, Alfi lo apunta en su libreta. */
     private void spotAd(Snapshot s) {
+        if (chatApp(s.pkg)) return;
         if (s.pkg == null || s.pkg.equals(getPackageName())
                 || (s.pkg.startsWith("com.android.") && !s.pkg.equals("com.android.chrome"))
                 || s.pkg.equals("com.google.android.tvlauncher") || s.pkg.equals("com.spocky.projengmenu")) return;
