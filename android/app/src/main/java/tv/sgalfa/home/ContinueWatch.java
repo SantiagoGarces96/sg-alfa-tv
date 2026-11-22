@@ -60,7 +60,7 @@ final class ContinueWatch {
             "^(.{2,60}?)\\s*[-–—·:|]\\s*((episodio|cap[ií]tulo|ep\\.?|temporada|season|episode|t\\d+).*)$", Pattern.CASE_INSENSITIVE);
     private static final Pattern NOISE = Pattern.compile(
             "(pulsa|presiona|mant[eé]n|cargando|espere|proveedor|comentario|recomi[eé]ndanos|instagram|whatsapp|"
-                    + "anuncio|publicidad|siguiente|anterior|reproducir|pausa|ajustes|configuraci|buscar|men[uú]|salir|mir[oó] hasta|ya viste|visto hasta|watched up|actualizaci|notificaci|instalar|update|install|descargar)",
+                    + "anuncio|publicidad|siguiente|anterior|reproducir|pausa|ajustes|configuraci|buscar|men[uú]|salir|mir[oó] hasta|ya viste|visto hasta|watched up|actualizaci|notificaci|instalar|update|install|descargar|ver gratis|ver ahora|ver trailer|ver tr[aá]iler|m[aá]s informaci|iniciar sesi|temporadas?\\s*\\||\\|\\s*\\d{4}|alquiler|suscr[ií]b|favorito|mi lista|g[eé]nero)",
             Pattern.CASE_INSENSITIVE);
 
     private ContinueWatch() {
@@ -234,9 +234,30 @@ final class ContinueWatch {
         pickedAt.put(pkg, SystemClock.uptimeMillis());
     }
 
+    /** El texto de letra más grande (alto del recuadro) que parezca un título. */
+    static String bigTitle(List<AccessibilityNodeInfo> nodes) {
+        String best = null;
+        int bestH = 0;
+        android.graphics.Rect r = new android.graphics.Rect();
+        for (AccessibilityNodeInfo n : nodes) {
+            CharSequence t = n.getText();
+            if (t == null || n.isEditable() || n.isClickable()) continue;
+            String s = t.toString().trim().replaceAll("\\s+", " ");
+            if (s.length() < 3 || s.length() > 60 || !good(s) || s.split(" ").length > 9) continue;
+            n.getBoundsInScreen(r);
+            int lines = Math.max(1, n.getMaxTextLength() > 0 ? 1 : 1);
+            int h = r.height() / lines;
+            if (h > bestH) {
+                bestH = h;
+                best = s;
+            }
+        }
+        return bestH >= 50 ? best : null; // letra grande de verdad (en 1080p)
+    }
+
     private static boolean good(String s) {
         s = s.trim();
-        return s.length() >= 2 && s.length() <= 80 && !TIME.matcher(s).matches() && !NOISE.matcher(s).find()
+        return s.length() >= 2 && s.length() <= 80 && s.indexOf('|') < 0 && !TIME.matcher(s).matches() && !NOISE.matcher(s).find()
                 && Character.isLetterOrDigit(s.codePointAt(0)) && s.chars().anyMatch(Character::isLetter);
     }
 
@@ -536,6 +557,14 @@ final class ContinueWatch {
         }
         // 1) Recordar el mejor título que se vea, haya sonido o no (el nombre suele salir con el vídeo en pausa).
         String seen = titleFromScreen(nodes);
+        // Sin «Episodio» en pantalla: el texto más grande (el nombre de la película o serie en su ficha).
+        if (seen == null) {
+            String big = bigTitle(nodes);
+            if (big != null) {
+                lastTitle.put(pkg, big);
+                lastTitleAt.put(pkg, now);
+            }
+        }
         if (seen != null) {
             String prev = lastTitle.get(pkg);
             Long prevAt = lastTitleAt.get(pkg);
@@ -587,6 +616,7 @@ final class ContinueWatch {
             }
             title = s;
         }
+        if (title == null) title = remembered; // el título grande de la ficha
         if (title != null && LIVE_WORDS.matcher(title).find()) return; // canal en vivo: no
         final String fTitle = title, fSub = sub;
         final long fPos = pos, fDur = dur;
