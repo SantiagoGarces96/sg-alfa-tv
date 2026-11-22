@@ -697,6 +697,14 @@ class _ContinueCardState extends State<_ContinueCard> {
   /** Mantener OK sobre la tarjeta: preguntar si se quita de «Continuar viendo». */
   Future<void> _askRemove(BuildContext context, String title) async {
     final it = widget.item;
+    final opened = DateTime.now();
+    // ¿Sigue mantenido el OK con el que se abrió la ventana?
+    bool okHeld() {
+      final k = HardwareKeyboard.instance.logicalKeysPressed;
+      return k.contains(LogicalKeyboardKey.select) || k.contains(LogicalKeyboardKey.enter) ||
+          k.contains(LogicalKeyboardKey.numpadEnter);
+    }
+
     final ok = await showDialog<bool>(
       context: context,
       barrierColor: Colors.black54,
@@ -714,14 +722,21 @@ class _ContinueCardState extends State<_ContinueCard> {
                 maxLines: 2, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 18),
             ProButton(
-              autofocus: true,
               color: Pro.danger,
-              onPressed: () => Navigator.of(ctx).pop(true),
+              // El OK que se mantuvo para abrir esta ventana no cuenta: hay que soltarlo y pulsar de nuevo.
+              onPressed: () {
+                if (DateTime.now().difference(opened).inMilliseconds < 600 || okHeld()) return;
+                Navigator.of(ctx).pop(true);
+              },
               child: const Text('Quitar', style: TextStyle(fontSize: 18)),
             ),
             const SizedBox(height: 8),
             ProButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
+              autofocus: true, // por defecto «Cancelar»: así un OK de más nunca borra nada
+              onPressed: () {
+                if (DateTime.now().difference(opened).inMilliseconds < 600 || okHeld()) return;
+                Navigator.of(ctx).pop(false);
+              },
               child: const Text('Cancelar', style: TextStyle(fontSize: 18)),
             ),
           ]),
