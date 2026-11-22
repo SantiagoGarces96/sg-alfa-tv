@@ -475,6 +475,12 @@ public class AutoClickService extends AccessibilityService {
             if (root == null) return;
             Snapshot s = snapshot();
             if (s == null || !Macros.normalize(s.brief).contains("version no compatible")) return;
+            StringBuilder dump = new StringBuilder("Ventana «Versión no compatible» en " + s.pkg + "\n");
+            for (AccessibilityNodeInfo n : s.nodes) {
+                dump.append(n.getViewIdResourceName()).append(" | ").append(n.getClassName()).append(" | ")
+                        .append(label(n)).append(n.isClickable() ? " | pulsable" : "").append("\n");
+            }
+            ProTools.logError(this, dump.toString());
             for (AccessibilityNodeInfo n : s.nodes) {
                 String l = Macros.normalize(label(n));
                 if (l.equals("x") || l.equals("cerrar") || l.equals("close") || l.equals("omitir") || l.equals("skip")
@@ -485,7 +491,7 @@ public class AutoClickService extends AccessibilityService {
                     }
                 }
             }
-            performGlobalAction(GLOBAL_ACTION_BACK); // segundo intento
+            performGlobalAction(GLOBAL_ACTION_BACK); // sin botón de cerrar: un solo «Atrás»
         } catch (Exception ignored) {
         }
     }
@@ -497,11 +503,15 @@ public class AutoClickService extends AccessibilityService {
         noteRun(m.id);
         switch (m.action) {
             case "BACK":
-                performGlobalAction(GLOBAL_ACTION_BACK);
                 if (m.id.equals("tpl-upd-incompatible") || m.id.equals("tpl-upd-descontinuada")) {
-                    // Si «Atrás» no la quita, se busca un botón de cerrar (X, Cerrar, Omitir…) en esa pantalla.
-                    handler.postDelayed(this::closeBlockingScreen, 1200);
+                    // Solo con esa ventana a la vista: se guarda cómo está hecha (para afinar) y se quita sin
+                    // cerrar la app: primero su propio botón de cerrar; si no tiene, un único «Atrás», que en una
+                    // ventana encima de la app solo cierra la ventana.
+                    closeBlockingScreen();
+                    done(m);
+                    break;
                 }
+                performGlobalAction(GLOBAL_ACTION_BACK);
                 done(m);
                 break;
             case "HOME":
