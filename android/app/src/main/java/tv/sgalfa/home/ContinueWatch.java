@@ -95,6 +95,12 @@ final class ContinueWatch {
                 || pkg.startsWith("com.qobuz") || pkg.startsWith("com.napster"));
     }
 
+    /** «Lo que suena» es solo para música: apps de música y las de YouTube/TizenTube (se usan para música). */
+    static boolean forNowPlaying(Context c, String pkg) {
+        return pkg != null && (musicOnly(pkg) || audioApp(c, pkg) || pkg.startsWith("com.google.android.youtube")
+                || pkg.equals("com.teamsmart.videomanager.tv") || pkg.equals("com.liskovsoft.smarttubetv.beta"));
+    }
+
     private static final Map<String, Boolean> audioCache = new HashMap<>();
 
     /** Cualquier reproductor de música: Android lo marca con la categoría «Audio». */

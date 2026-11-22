@@ -347,6 +347,8 @@ public final class WidgetsChannel {
                 String pkg = c.getPackageName();
                 if ("com.apps.livetv".equals(pkg) || "com.android.bluetooth".equals(pkg)
                         || "com.android.tv".equals(pkg) || "com.google.android.tv".equals(pkg)) continue;
+                // Películas y series no van aquí (van en «Continuar viendo»): solo música.
+                if (!ContinueWatch.forNowPlaying(activity, pkg)) continue;
                 // Una app abierta sin nada cargado (p. ej. Spotify recién abierto) no tapa la última canción.
                 if (first == null && c.getMetadata() != null) first = c;
                 PlaybackState st = c.getPlaybackState();
@@ -453,6 +455,7 @@ public final class WidgetsChannel {
             String pkg = p.getString("package", null);
             String title = p.getString("title", null);
             if (pkg == null || title == null) return m;
+            if (!ContinueWatch.forNowPlaying(activity, pkg)) return m; // una serie o película vieja: no
             if (System.currentTimeMillis() - p.getLong("at", 0) > LAST_MAX_AGE) return m;
             if (launchFor(pkg) == null) return m;
             m.put("package", pkg);

@@ -123,3 +123,8 @@ ads-fa.spotify.com
 analytics.spotify.com
 crashdump.spotify.com
 log.spotify.com
+# Mercado Play: servidor que inserta los anuncios en el video (Amazon MediaTailor) y anuncios de Google IMA
+mediatailor.us-east-1.amazonaws.com
+mediatailor.us-west-2.amazonaws.com
+mediatailor.sa-east-1.amazonaws.com
+imasdk.googleapis.com

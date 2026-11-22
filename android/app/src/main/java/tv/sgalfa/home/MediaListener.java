@@ -275,6 +275,11 @@ public class MediaListener extends NotificationListenerService {
     /** Guarda la canción actual en el mismo formato que usa la tarjeta (WidgetsChannel). */
     private void save(MediaController c) {
         if (isSpotifyAd(c)) return;
+        if (!ContinueWatch.forNowPlaying(this, c.getPackageName())) {
+            // Video (película/serie): no es «lo que suena». «Continuar viendo» toma el nombre de la ficha
+            // (el de la sesión a veces es solo el episodio, p. ej. «Piloto»).
+            return;
+        }
         try {
             MediaMetadata md = c.getMetadata();
             if (md == null) return;
