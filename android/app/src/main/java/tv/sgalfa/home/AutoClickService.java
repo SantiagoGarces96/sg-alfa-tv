@@ -296,6 +296,10 @@ public class AutoClickService extends AccessibilityService {
         // Ignorar actualizaciones solo dentro de las apps, nunca donde se instala a propósito.
         if (Macros.isUpdateRule(m) && s.pkg != null && (s.pkg.equals("com.android.vending")
                 || s.pkg.contains("packageinstaller") || s.pkg.contains("settings") || s.pkg.equals(getPackageName()))) return null;
+        // WiwyXuper: sus avisos de actualizar se dejan como estaban (son necesarios). Solo se salta la
+        // pantalla de «Versión no compatible».
+        if (m.id.startsWith("tpl-upd-") && !m.id.equals("tpl-upd-incompatible") && !m.id.equals("tpl-upd-descontinuada")
+                && s.pkg != null && s.pkg.startsWith("com.xuper.")) return null;
         // La lista de notificaciones que abre la persona (WiwyXuper) no es un aviso: tiene «Cerrar».
         if (Macros.isUpdateRule(m) && s.brief.toLowerCase(java.util.Locale.ROOT).contains("notificaciones")) return null;
         if ("BUTTON".equals(m.trigger)) {
@@ -465,6 +469,27 @@ public class AutoClickService extends AccessibilityService {
         if (hit != null) perform(m, hit);
     }
 
+    private void closeBlockingScreen() {
+        try {
+            AccessibilityNodeInfo root = getRootInActiveWindow();
+            if (root == null) return;
+            Snapshot s = snapshot();
+            if (s == null || !Macros.normalize(s.brief).contains("version no compatible")) return;
+            for (AccessibilityNodeInfo n : s.nodes) {
+                String l = Macros.normalize(label(n));
+                if (l.equals("x") || l.equals("cerrar") || l.equals("close") || l.equals("omitir") || l.equals("skip")
+                        || l.equals("cancelar") || l.equals("cancel") || l.equals("salir") || l.equals("despues")) {
+                    AccessibilityNodeInfo c = n;
+                    for (int i = 0; i < 4 && c != null; i++, c = c.getParent()) {
+                        if (c.isClickable() && c.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return;
+                    }
+                }
+            }
+            performGlobalAction(GLOBAL_ACTION_BACK); // segundo intento
+        } catch (Exception ignored) {
+        }
+    }
+
     /** Automatizaciones que no consiguieron cerrar su aviso en una app: se dejan descansar. */
     private final Map<String, Long> givenUp = new HashMap<>();
 
@@ -473,6 +498,10 @@ public class AutoClickService extends AccessibilityService {
         switch (m.action) {
             case "BACK":
                 performGlobalAction(GLOBAL_ACTION_BACK);
+                if (m.id.equals("tpl-upd-incompatible") || m.id.equals("tpl-upd-descontinuada")) {
+                    // Si «Atrás» no la quita, se busca un botón de cerrar (X, Cerrar, Omitir…) en esa pantalla.
+                    handler.postDelayed(this::closeBlockingScreen, 1200);
+                }
                 done(m);
                 break;
             case "HOME":
