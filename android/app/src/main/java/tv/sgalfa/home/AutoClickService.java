@@ -226,11 +226,22 @@ public class AutoClickService extends AccessibilityService {
         final String pkg;
         final String screen;
         final List<AccessibilityNodeInfo> nodes;
+        /**
+         * Solo los textos cortos (botones, títulos de avisos). Las palabras «anuncio»/«publicidad»
+         * se buscan aquí: así el chat de Kick o una descripción larga no cuentan como anuncio.
+         */
+        final String brief;
 
         Snapshot(String pkg, String screen, List<AccessibilityNodeInfo> nodes) {
             this.pkg = pkg;
             this.screen = screen;
             this.nodes = nodes;
+            StringBuilder b = new StringBuilder();
+            for (AccessibilityNodeInfo n : nodes) {
+                CharSequence t = n.getText() != null ? n.getText() : n.getContentDescription();
+                if (t != null && t.length() <= 60) b.append(t).append(' ');
+            }
+            this.brief = b.toString();
         }
     }
 
@@ -269,11 +280,11 @@ public class AutoClickService extends AccessibilityService {
                 String l = label(n);
                 if (l == null || l.trim().length() > m.text.trim().length() + 12) continue;
                 if (!pressable(n)) continue;
-                if (Macros.buttonMatches(m, l, s.screen, s.pkg)) return n;
+                if (Macros.buttonMatches(m, l, s.brief, s.pkg)) return n;
             }
             return null;
         }
-        return Macros.textMatches(m, s.screen, s.pkg) ? Boolean.TRUE : null;
+        return Macros.textMatches(m, s.brief, s.pkg) ? Boolean.TRUE : null;
     }
 
     private static boolean pressable(AccessibilityNodeInfo n) {
@@ -293,7 +304,7 @@ public class AutoClickService extends AccessibilityService {
         Long last = lastAdCheck.get(s.pkg);
         if (last != null && now - last < 3000) return;
         lastAdCheck.put(s.pkg, now);
-        String screen = s.screen.toLowerCase(java.util.Locale.ROOT);
+        String screen = s.brief.toLowerCase(java.util.Locale.ROOT);
         String hit = null;
         for (String w : AdLog.AD_SCREEN_WORDS) {
             if (screen.contains(w)) {
@@ -303,7 +314,7 @@ public class AutoClickService extends AccessibilityService {
         }
         if (hit == null) return;
         int at = Math.max(0, screen.indexOf(hit) - 40);
-        String text = s.screen.substring(at, Math.min(s.screen.length(), at + 120)).replaceAll("\\s+", " ").trim();
+        String text = s.brief.substring(at, Math.min(s.brief.length(), at + 120)).replaceAll("\\s+", " ").trim();
         List<String> buttons = new ArrayList<>();
         for (AccessibilityNodeInfo n : s.nodes) {
             String l = label(n);
