@@ -158,6 +158,8 @@ public class AutoClickService extends AccessibilityService {
     }
 
     /** Cada cambio de ventana: ¿apareció un anuncio, o el anuncio nos mandó a otra app? */
+    private String lastFrontPkg;
+
     private void watchWindow(String pkg, CharSequence cls) {
         long now = SystemClock.uptimeMillis();
         if (isAdScreen(cls)) {
@@ -393,6 +395,12 @@ public class AutoClickService extends AccessibilityService {
             return;
         }
         boolean cleaning = cleaner != null && cleaner.running();
+        if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && !pkg.isEmpty()
+                && !pkg.equals("com.android.systemui")) {
+            // Se cambió de app (o se volvió al inicio): guardar ya lo que se veía en la anterior.
+            if (lastFrontPkg != null && !lastFrontPkg.equals(pkg)) ContinueWatch.onLeave(this, lastFrontPkg);
+            lastFrontPkg = pkg;
+        }
         if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && !cleaning && !pkg.equals(getPackageName())) {
             watchWindow(pkg, event.getClassName());
         }

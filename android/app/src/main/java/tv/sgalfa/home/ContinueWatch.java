@@ -73,7 +73,14 @@ final class ContinueWatch {
             "com.android.systemui", "com.android.tv.settings", "com.android.settings", "com.google.android.inputmethod.latin",
             "com.google.android.tvlauncher", "com.google.android.apps.tv.launcherx", "com.spocky.projengmenu",
             "com.android.packageinstaller", "com.google.android.packageinstaller", "com.google.android.permissioncontroller",
-            "com.android.vending", "com.google.android.katniss", "com.google.android.leanbacklauncher"));
+            "com.android.vending", "com.google.android.katniss", "com.google.android.leanbacklauncher",
+            // Solo TV en vivo / deportes: no hay películas ni series que continuar.
+            "com.rblive.tv", "app.aksports.live", "com.sportzx.live", "com.lite.fczx", "com.kick.mobile",
+            "com.apps.livetv", "com.asfmapps.firetv_volume", "org.blokada.origin.alarm"));
+
+    /** Títulos que son canales o transmisiones en vivo (no películas ni series). */
+    private static final Pattern LIVE_WORDS = Pattern.compile(
+            "(?i)(\\ben vivo\\b|\\blive\\b|\\bhd\\s*\\d*$|\\bfhd\\b|\\b(canal|channel)\\b|\\b24/7\\b|\\bnoticias\\b)");
 
     /** Apps solo de música: ya salen arriba en «lo que suena», no en «Continuar viendo». */
     static boolean musicOnly(String pkg) {
@@ -419,6 +426,29 @@ final class ContinueWatch {
     }
 
     private static final Map<String, String> xuperSaved = new HashMap<>();
+    private static final Map<String, Long> soundAt = new HashMap<>();
+
+    /**
+     * Se salió de una app (se abrió otra o el inicio). Si en ella sonaba algo hace poco, se guarda
+     * ya lo que se estaba viendo: la tarjeta aparece al instante en el inicio.
+     */
+    static void onLeave(AccessibilityService svc, String pkg) {
+        if (pkg == null || skip(svc, pkg) || xuper(pkg) || ANIMECAST.equals(pkg)) return;
+        Long at = soundAt.get(pkg);
+        long now = SystemClock.uptimeMillis();
+        if (at == null || now - at > 3 * 60_000) return;
+        Long tAt = lastTitleAt.get(pkg);
+        String title = tAt != null && now - tAt < REMEMBER_MS ? lastTitle.get(pkg) : null;
+        if (title == null) title = strong.get(pkg);
+        if (title == null) {
+            Long pAt = pickedAt.get(pkg);
+            if (pAt != null && now - pAt < 30 * 60_000) title = picked.get(pkg);
+        }
+        if (title == null || LIVE_WORDS.matcher(title).find() || isLive(svc, title)) return;
+        final String t = title;
+        lastShot.remove(pkg);
+        worker.execute(() -> save(svc, pkg, t, null, -1, -1, null));
+    }
 
     /** Guarda la tarjeta con una imagen del momento (si se puede). */
     private static void capture(AccessibilityService svc, String pkg, String title) {
@@ -524,6 +554,7 @@ final class ContinueWatch {
         // 2) Solo con algo reproduciéndose: imagen del momento (como mucho una por minuto y app).
         AudioManager am = (AudioManager) svc.getSystemService(Context.AUDIO_SERVICE);
         if (am == null || !am.isMusicActive()) return;
+        soundAt.put(pkg, now);
         Long last = lastShot.get(pkg);
         if (last != null && now - last < SHOT_EVERY_MS) return;
         lastShot.put(pkg, now);
@@ -556,6 +587,7 @@ final class ContinueWatch {
             }
             title = s;
         }
+        if (title != null && LIVE_WORDS.matcher(title).find()) return; // canal en vivo: no
         final String fTitle = title, fSub = sub;
         final long fPos = pos, fDur = dur;
 
