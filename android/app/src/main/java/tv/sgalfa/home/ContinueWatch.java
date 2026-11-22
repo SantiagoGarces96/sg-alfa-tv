@@ -60,7 +60,7 @@ final class ContinueWatch {
             "^(.{2,60}?)\\s*[-–—·:|]\\s*((episodio|cap[ií]tulo|ep\\.?|temporada|season|episode|t\\d+).*)$", Pattern.CASE_INSENSITIVE);
     private static final Pattern NOISE = Pattern.compile(
             "(pulsa|presiona|mant[eé]n|cargando|espere|proveedor|comentario|recomi[eé]ndanos|instagram|whatsapp|"
-                    + "anuncio|publicidad|siguiente|anterior|reproducir|pausa|ajustes|configuraci|buscar|men[uú]|salir|mir[oó] hasta|ya viste|visto hasta|watched up|actualizaci|notificaci|instalar|update|install|descargar|ver gratis|ver ahora|ver trailer|ver tr[aá]iler|m[aá]s informaci|iniciar sesi|temporadas?\\s*\\||\\|\\s*\\d{4}|alquiler|suscr[ií]b|favorito|mi lista|g[eé]nero|episodios y temporadas|imperdibles|recomendad|tendencias|populares)",
+                    + "anuncio|publicidad|siguiente|anterior|reproducir|pausa|ajustes|configuraci|buscar|men[uú]|salir|mir[oó] hasta|ya viste|visto hasta|watched up|actualizaci|notificaci|instalar|update|install|descargar|ver gratis|ver ahora|ver trailer|ver tr[aá]iler|m[aá]s informaci|iniciar sesi|temporadas?\\s*\\||\\|\\s*\\d{4}|alquiler|alquilar|comprar|rentar|\$\s*\d|suscr[ií]b|favorito|mi lista|g[eé]nero|episodios y temporadas|imperdibles|recomendad|tendencias|populares)",
             Pattern.CASE_INSENSITIVE);
 
     private ContinueWatch() {
