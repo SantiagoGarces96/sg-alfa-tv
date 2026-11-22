@@ -530,14 +530,20 @@ public class AutoClickService extends AccessibilityService {
             playingNow = am != null && am.isMusicActive();
         }
         if (playingNow && !windowChanged) settle = 2000;
-        if (cleaning || (windowChanged && now - lastScan > 250) || now - lastScan >= settle) {
+        if (cleaning) {
             handler.removeCallbacks(queuedScan);
             scanQueued = false;
             scan();
-        } else if (!scanQueued) {
-            scanQueued = true;
-            handler.postDelayed(queuedScan, Math.max(0, settle - (now - lastScan)));
+            return;
         }
+        // Esperar a que la pantalla se calme: mientras se navega con el control (cada tecla cambia la
+        // pantalla) no se lee nada; se lee 0,4 s después del último cambio de ventana o 0,9 s después
+        // del último cambio de contenido. Así el control responde siempre al instante.
+        long wait = windowChanged ? 400 : Math.max(900, settle);
+        if (now - lastKeyAt < 1500) wait = Math.max(wait, 1200);
+        handler.removeCallbacks(queuedScan);
+        scanQueued = true;
+        handler.postDelayed(queuedScan, wait);
     }
 
     private void scan() {
