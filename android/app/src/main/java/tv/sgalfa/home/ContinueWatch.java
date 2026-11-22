@@ -755,6 +755,8 @@ final class ContinueWatch {
     }
 
     private static synchronized void save(Context c, String pkg, String title, String sub, long pos, long dur, Bitmap frame) {
+        // Durante un anuncio no se guarda nada: ni su título ni su imagen.
+        if (AutoClickService.adNow()) return;
         try {
             JSONArray old = load(c);
             String key = keyOf(pkg, title);

@@ -165,6 +165,9 @@ public class AutoClickService extends AccessibilityService {
     static final String MPLAY = "com.mercadolibre.android.mplay_tv";
     private boolean adWatching = false;
     private boolean adMuted = false;
+    /** Hay un anuncio en pantalla ahora (Mercado Play): no se guarda nada en «Continuar viendo». */
+    static volatile long adSeenAt = 0;
+    static boolean adNow() { return SystemClock.uptimeMillis() - adSeenAt < 4000; }
     private int savedVol = -1;
     private long lastSkipTap = 0;
 
@@ -206,6 +209,7 @@ public class AutoClickService extends AccessibilityService {
                             r.getHardwareBuffer().close();
                         } catch (Exception ignored) {
                         }
+                        if (ad) adSeenAt = SystemClock.uptimeMillis();
                         if (ad) adStart(w, h);
                         else adEnd();
                     }
