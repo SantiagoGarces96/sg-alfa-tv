@@ -540,6 +540,15 @@ public class AutoClickService extends AccessibilityService {
         return false;
     }
 
+    /** Última vez que se pulsó una tecla del control (para saber si una pausa la hizo la persona). */
+    static volatile long lastKeyAt = 0;
+
+    @Override
+    protected boolean onKeyEvent(android.view.KeyEvent event) {
+        lastKeyAt = SystemClock.uptimeMillis();
+        return false; // solo se mira; la tecla sigue su camino normal
+    }
+
     @Override
     public void onInterrupt() {
     }

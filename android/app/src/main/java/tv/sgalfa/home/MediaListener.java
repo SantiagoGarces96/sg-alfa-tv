@@ -101,6 +101,7 @@ public class MediaListener extends NotificationListenerService {
 
                     @Override
                     public void onPlaybackStateChanged(PlaybackState state) {
+                        stillWatching(c, state);
                         if (state != null && state.getState() != PlaybackState.STATE_PLAYING) unmute();
                         if (state != null && state.getState() == PlaybackState.STATE_PLAYING) save(c);
                         updateWake();
@@ -230,6 +231,40 @@ public class MediaListener extends NotificationListenerService {
             if (wake != null && wake.isHeld()) wake.release();
         } catch (Exception ignored) {
         }
+    }
+
+    // ------------------------------------------------------------ «¿Sigues viendo?» de YouTube/TizenTube
+
+    private final java.util.Map<String, Integer> lastState = new java.util.HashMap<>();
+    private static final long IDLE_MS = 5 * 60_000L; // sin tocar el control hace 5 min o más
+
+    /**
+     * TizenTube/YouTube pausan solos y preguntan «¿Quieres seguir mirándolo?». Ese aviso no se puede
+     * leer ni tocar desde fuera, pero se responde igual mandando «reproducir». Solo si la pausa no
+     * la hizo la persona (nadie tocó el control en los últimos minutos).
+     */
+    private void stillWatching(MediaController c, PlaybackState st) {
+        String pkg = c.getPackageName();
+        if (st == null || pkg == null) return;
+        Integer prev = lastState.put(pkg, st.getState());
+        if (!(pkg.startsWith("io.gh.reisxd.tizentube") || pkg.equals("com.google.android.youtube.tv")
+                || pkg.equals("com.teamsmart.videomanager.tv"))) return;
+        if (st.getState() != PlaybackState.STATE_PAUSED || prev == null || prev != PlaybackState.STATE_PLAYING) return;
+        if (AutoClickService.instance == null) return; // sin automatizaciones no se sabe si fue la persona
+        long idle = android.os.SystemClock.uptimeMillis() - AutoClickService.lastKeyAt;
+        if (AutoClickService.lastKeyAt != 0 && idle < IDLE_MS) return; // la pausó alguien con el control
+        main.postDelayed(() -> {
+            try {
+                PlaybackState now = c.getPlaybackState();
+                long idle2 = android.os.SystemClock.uptimeMillis() - AutoClickService.lastKeyAt;
+                if (now != null && now.getState() == PlaybackState.STATE_PAUSED
+                        && (AutoClickService.lastKeyAt == 0 || idle2 >= IDLE_MS)) {
+                    c.getTransportControls().play();
+                    Stats.add(this, Stats.ACTIONS);
+                }
+            } catch (Exception ignored) {
+            }
+        }, 2500);
     }
 
     static boolean skip(String pkg) {
