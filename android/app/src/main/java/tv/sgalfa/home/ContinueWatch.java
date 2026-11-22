@@ -438,6 +438,17 @@ final class ContinueWatch {
         return c.getSharedPreferences(WATCH_PREFS, Context.MODE_PRIVATE).getLong(pkg + "|" + title, 0);
     }
 
+    private static final Pattern PAID = Pattern.compile("(?i)^(alquilar|comprar|rentar|suscr[ií]bete|pagar)\\b.*(\\$|\\d)");
+
+    /** ¿La pantalla ofrece alquilar o comprar? */
+    static boolean paidScreen(List<AccessibilityNodeInfo> nodes) {
+        for (AccessibilityNodeInfo n : nodes) {
+            CharSequence t = n.getText();
+            if (t != null && PAID.matcher(t.toString().trim()).find()) return true;
+        }
+        return false;
+    }
+
     static boolean isLive(Context c, String title) {
         if (title == null) return false;
         return c.getSharedPreferences(LIVE_PREFS, Context.MODE_PRIVATE).contains(Macros.normalize(title));
@@ -579,6 +590,13 @@ final class ContinueWatch {
         }
         // 1) Recordar el mejor título que se vea, haya sonido o no (el nombre suele salir con el vídeo en pausa).
         String seen = titleFromScreen(nodes);
+        // Ficha de alquiler o compra («Alquilar por $ 12.000»): ese título no va a «Continuar viendo».
+        if (paidScreen(nodes)) {
+            String big0 = bigTitle(nodes);
+            if (big0 != null) markLive(svc, big0); // se recuerda para no guardarlo nunca
+            lastTitle.remove(pkg);
+            return;
+        }
         // Sin «Episodio» en pantalla: el texto más grande (el nombre de la película o serie en su ficha).
         if (seen == null) {
             String big = bigTitle(nodes);

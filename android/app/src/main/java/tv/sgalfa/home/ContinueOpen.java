@@ -262,6 +262,9 @@ final class ContinueOpen {
     }
 
     private static boolean click(AccessibilityNodeInfo n) {
+        // Nunca pulsar nada de pago (alquilar, comprar, suscribirse).
+        CharSequence lt = n == null ? null : n.getText();
+        if (lt != null && Macros.normalize(lt.toString()).matches("(alquilar|comprar|rentar|suscribete|suscribirse|pagar).*")) return false;
         for (int i = 0; i < 4 && n != null; i++) {
             if (n.isClickable() && n.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true;
             n = n.getParent();

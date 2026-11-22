@@ -413,6 +413,8 @@ public class AutoClickService extends AccessibilityService {
                 String l = label(n);
                 if (l == null || l.trim().length() > m.text.trim().length() + 12) continue;
                 if (!pressable(n)) continue;
+                // Nunca botones de pago (alquilar, comprar, suscribirse).
+                if (Macros.normalize(l).matches("(alquilar|comprar|rentar|suscribete|suscribirse|pagar).*")) continue;
                 if (Macros.buttonMatches(m, l, s.brief, s.pkg)) return n;
             }
             return null;
