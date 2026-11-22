@@ -160,6 +160,113 @@ public class AutoClickService extends AccessibilityService {
     /** Cada cambio de ventana: ¿apareció un anuncio, o el anuncio nos mandó a otra app? */
     private String lastFrontPkg;
 
+    // ------------------------------------------------------------ anuncios de Mercado Play
+
+    static final String MPLAY = "com.mercadolibre.android.mplay_tv";
+    private boolean adWatching = false;
+    private boolean adMuted = false;
+    private int savedVol = -1;
+    private long lastSkipTap = 0;
+
+    private void startAdWatch() {
+        if (adWatching || android.os.Build.VERSION.SDK_INT < 30) return;
+        adWatching = true;
+        handler.post(adWatch);
+    }
+
+    /**
+     * Mercado Play pega los anuncios dentro del video (no se pueden bloquear). Cada 1,5 s se mira la
+     * pantalla: si está la marca amarilla «Ad», se quita el sonido y se pulsa «Saltar ad» (cuando sale).
+     * Al volver la serie o película, el sonido vuelve. Las series con protección salen en negro en la
+     * captura, así que solo se reconoce el anuncio.
+     */
+    private final Runnable adWatch = new Runnable() {
+        @Override
+        public void run() {
+            if (!MPLAY.equals(lastFrontPkg)) {
+                adWatching = false;
+                adEnd();
+                return;
+            }
+            try {
+                takeScreenshot(android.view.Display.DEFAULT_DISPLAY, getMainExecutor(), new TakeScreenshotCallback() {
+                    @Override
+                    public void onSuccess(ScreenshotResult r) {
+                        boolean ad = false;
+                        int w = 0, h = 0;
+                        try {
+                            android.graphics.Bitmap hw = android.graphics.Bitmap.wrapHardwareBuffer(r.getHardwareBuffer(), r.getColorSpace());
+                            if (hw != null) {
+                                android.graphics.Bitmap b = hw.copy(android.graphics.Bitmap.Config.ARGB_8888, false);
+                                w = b.getWidth();
+                                h = b.getHeight();
+                                ad = adBadge(b);
+                                b.recycle();
+                            }
+                            r.getHardwareBuffer().close();
+                        } catch (Exception ignored) {
+                        }
+                        if (ad) adStart(w, h);
+                        else adEnd();
+                    }
+
+                    @Override
+                    public void onFailure(int errorCode) {
+                    }
+                });
+            } catch (Exception ignored) {
+            }
+            handler.postDelayed(this, 1500);
+        }
+    };
+
+    /** La pastilla amarilla «Ad» abajo a la izquierda (x≈160-210, y≈795-835 en 1920×1080). */
+    private static boolean adBadge(android.graphics.Bitmap b) {
+        int w = b.getWidth(), h = b.getHeight();
+        int x0 = w * 150 / 1920, x1 = w * 215 / 1920, y0 = h * 790 / 1080, y1 = h * 842 / 1080;
+        int yellow = 0, total = 0;
+        for (int y = y0; y < y1; y += 2) {
+            for (int x = x0; x < x1; x += 2) {
+                int c = b.getPixel(x, y);
+                int R = (c >> 16) & 255, G = (c >> 8) & 255, B = c & 255;
+                total++;
+                if (R > 220 && G > 190 && B < 90) yellow++;
+            }
+        }
+        return total > 0 && yellow * 100 / total >= 35;
+    }
+
+    private void adStart(int w, int h) {
+        android.media.AudioManager am = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+        if (!adMuted && am != null) {
+            savedVol = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
+            am.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_MUTE, 0);
+            adMuted = true;
+            Stats.add(this, Stats.ADS);
+        }
+        // «Saltar ad» abajo a la derecha (sale a partir del 2.º anuncio): se pulsa cada 3 s.
+        long now = SystemClock.uptimeMillis();
+        if (w > 0 && now - lastSkipTap > 3000) {
+            lastSkipTap = now;
+            android.graphics.Path p = new android.graphics.Path();
+            p.moveTo(w * 1671f / 1920f, h * 813f / 1080f);
+            dispatchGesture(new android.accessibilityservice.GestureDescription.Builder()
+                    .addStroke(new android.accessibilityservice.GestureDescription.StrokeDescription(p, 0, 60)).build(), null, null);
+        }
+    }
+
+    private void adEnd() {
+        if (!adMuted) return;
+        adMuted = false;
+        android.media.AudioManager am = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+        if (am != null) {
+            am.adjustStreamVolume(android.media.AudioManager.STREAM_MUSIC, android.media.AudioManager.ADJUST_UNMUTE, 0);
+            if (savedVol > 0 && am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC) == 0) {
+                am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, savedVol, 0);
+            }
+        }
+    }
+
     private void watchWindow(String pkg, CharSequence cls) {
         long now = SystemClock.uptimeMillis();
         if (isAdScreen(cls)) {
@@ -400,6 +507,7 @@ public class AutoClickService extends AccessibilityService {
             // Se cambió de app (o se volvió al inicio): guardar ya lo que se veía en la anterior.
             if (lastFrontPkg != null && !lastFrontPkg.equals(pkg)) ContinueWatch.onLeave(this, lastFrontPkg);
             lastFrontPkg = pkg;
+            if (MPLAY.equals(pkg)) startAdWatch(); // Mercado Play: vigilar sus anuncios dentro del video
         }
         if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && !cleaning && !pkg.equals(getPackageName())) {
             watchWindow(pkg, event.getClassName());
