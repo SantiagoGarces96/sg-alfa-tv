@@ -176,7 +176,7 @@ public class AutoClickService extends AccessibilityService {
 
     /**
      * Mercado Play pega los anuncios dentro del video (no se pueden bloquear). Cada 1,5 s se mira la
-     * pantalla: si está la marca amarilla «Ad», se quita el sonido y se pulsa «Saltar ad» (cuando sale).
+     * pantalla: si está la marca amarilla «Ad», se quita el sonido.
      * Al volver la serie o película, el sonido vuelve. Las series con protección salen en negro en la
      * captura, así que solo se reconoce el anuncio.
      */
@@ -244,15 +244,8 @@ public class AutoClickService extends AccessibilityService {
             adMuted = true;
             Stats.add(this, Stats.ADS);
         }
-        // «Saltar ad» abajo a la derecha (sale a partir del 2.º anuncio): se pulsa cada 3 s.
-        long now = SystemClock.uptimeMillis();
-        if (w > 0 && now - lastSkipTap > 3000) {
-            lastSkipTap = now;
-            android.graphics.Path p = new android.graphics.Path();
-            p.moveTo(w * 1671f / 1920f, h * 813f / 1080f);
-            dispatchGesture(new android.accessibilityservice.GestureDescription.Builder()
-                    .addStroke(new android.accessibilityservice.GestureDescription.StrokeDescription(p, 0, 60)).build(), null, null);
-        }
+        // Sin «Saltar ad» automático: en decos y teles sin pantalla táctil un toque simulado cuelga el
+        // control remoto del sistema y reinicia el equipo. Solo se silencia.
     }
 
     private void adEnd() {
