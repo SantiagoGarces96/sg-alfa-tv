@@ -495,6 +495,12 @@ public class AutoClickService extends AccessibilityService {
     public void onAccessibilityEvent(AccessibilityEvent event) {
         CharSequence p = event.getPackageName();
         String pkg = p == null ? "" : p.toString();
+        int et = event.getEventType();
+        if (et == AccessibilityEvent.TYPE_VIEW_FOCUSED || et == AccessibilityEvent.TYPE_VIEW_SELECTED
+                || et == AccessibilityEvent.TYPE_VIEW_CLICKED) {
+            lastKeyAt = SystemClock.uptimeMillis(); // alguien usa el control
+            if (et != AccessibilityEvent.TYPE_VIEW_CLICKED) return;
+        }
         if (event.getEventType() == AccessibilityEvent.TYPE_VIEW_CLICKED) {
             // Lo que se elige dentro de una app (película, serie, canal): título para «Continuar viendo».
             ContinueWatch.onClick(this, pkg, event.getSource(), event.getText());
@@ -743,11 +749,6 @@ public class AutoClickService extends AccessibilityService {
     /** Última vez que se pulsó una tecla del control (para saber si una pausa la hizo la persona). */
     static volatile long lastKeyAt = 0;
 
-    @Override
-    protected boolean onKeyEvent(android.view.KeyEvent event) {
-        lastKeyAt = SystemClock.uptimeMillis();
-        return false; // solo se mira; la tecla sigue su camino normal
-    }
 
     @Override
     public void onInterrupt() {
