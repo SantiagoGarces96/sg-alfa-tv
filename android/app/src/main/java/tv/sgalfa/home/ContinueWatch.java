@@ -188,28 +188,124 @@ final class ContinueWatch {
      * de la app). El nombre del anime sale de la tarjeta que se tocó; el episodio, de la barra de arriba.
      */
     private static boolean animeCastNow(AccessibilityService svc, String pkg, List<AccessibilityNodeInfo> nodes) {
-        if (!ANIMECAST.equals(pkg) || acAnime == null) return false;
+        if (!ANIMECAST.equals(pkg)) return false;
+        String full = null, ep = null, at = null, total = null, hAt = null, hTotal = null;
+        boolean home = false;
         for (AccessibilityNodeInfo n : nodes) {
             CharSequence t = n.getText();
-            if (t == null || n.getViewIdResourceName() != null) continue; // el título de la barra no tiene id
-            Matcher m = AC_EP.matcher(t.toString().trim());
-            if (!m.matches()) continue;
-            String title = acAnime + " - Episodio " + m.group(1);
-            if (title.equals(acSaved)) return false;
-            acSaved = title;
-            capture(svc, pkg, title);
-            return true;
+            if (t == null) continue;
+            String v = t.toString().trim();
+            if (idIs(n, "anime_name")) full = v;
+            else if (idIs(n, "exo_position")) at = v;
+            else if (idIs(n, "exo_duration")) total = v;
+            else if (idIs(n, "historial_tiempo_actual")) hAt = v;
+            else if (idIs(n, "historial_tiempo_total")) hTotal = v;
+            else if (idIs(n, "episodio_anime")) home = true;
+            else if (n.getViewIdResourceName() == null && AC_EP.matcher(v).matches()) ep = v;
         }
-        return false;
+        if (home) {
+            acPlaying = false;
+            return false; // su inicio: lo lee importList
+        }
+        if (full != null && full.length() > 3) {
+            // Reproductor con los controles a la vista: nombre, minuto y duración exactos.
+            if (!full.equals(acTitle)) {
+                acPos = 0;
+                acDur = -1;
+            }
+            acTitle = full;
+            if (at != null) acPos = Math.max(0, ms(at));
+            if (total != null) acDur = ms(total);
+            acAt = SystemClock.uptimeMillis();
+            acPlaying = true;
+            acSave(svc);
+        } else if (ep != null) {
+            // Página del episodio: el tiempo está ahí; el nombre, de la tarjeta tocada o de su lista.
+            acPlaying = false;
+            long p = hAt == null ? -1 : ms(hAt), d = hTotal == null ? -1 : ms(hTotal);
+            String name = acAnime;
+            if (name == null) {
+                for (Card c : acCards) {
+                    if (ep.equalsIgnoreCase(c.episode) && d > 0 && c.dur == d && Math.abs(c.pos - p) < 120_000) {
+                        name = c.series;
+                        break;
+                    }
+                }
+            }
+            String t = name == null ? null : name + " - " + ep;
+            if (t == null && acTitle != null && acTitle.endsWith(" - " + ep)) t = acTitle;
+            if (t != null) {
+                if (!t.equals(acTitle)) {
+                    acPos = 0;
+                    acDur = -1;
+                }
+                acTitle = t;
+                if (p >= 0) acPos = p;
+                if (d > 0) acDur = d;
+                acAt = SystemClock.uptimeMillis();
+                acSave(svc);
+            } else {
+                acTitle = null;
+            }
+        }
+        return true; // en Anime Cast no se usa nada más (era lo que guardaba «Episodio 7» a secas)
+    }
+
+    private static volatile String acTitle;
+    private static volatile long acPos, acDur = -1, acAt, acShotAt, acSavedPos = -1;
+    private static volatile boolean acPlaying;
+    private static volatile List<Card> acCards = new ArrayList<>();
+
+    private static void acSave(Context c) {
+        final String t = acTitle;
+        if (t == null) return;
+        boolean isNew = !t.equals(acSaved);
+        if (!isNew && Math.abs(acPos - acSavedPos) < 3000) return;
+        acSaved = t;
+        acSavedPos = acPos;
+        long now = SystemClock.uptimeMillis();
+        final long p = acPos, d = acDur;
+        if (c instanceof AccessibilityService && acPlaying && (isNew || acShotAt == 0 || now - acShotAt > 5 * 60_000)) {
+            acShotAt = now;
+            capture((AccessibilityService) c, ANIMECAST, t, p, d);
+        } else {
+            worker.execute(() -> save(c, ANIMECAST, t, null, p, d, null));
+        }
+    }
+
+    /** El video sigue con los controles escondidos: sumar lo que ha pasado. */
+    private static void acAdvance(Context c, boolean leaving) {
+        if (!acPlaying || acTitle == null) return;
+        long now = SystemClock.uptimeMillis();
+        AudioManager am = (AudioManager) c.getSystemService(Context.AUDIO_SERVICE);
+        if (leaving || (am != null && am.isMusicActive())) {
+            acPos += Math.min(Math.max(0, now - acAt), 35_000);
+            if (acDur > 0) acPos = Math.min(acPos, acDur);
+        }
+        acAt = now;
+        if (leaving) acSavedPos = -1;
+        acSave(c);
     }
 
     static void onClick(Context c, String pkg, AccessibilityNodeInfo source, List<CharSequence> eventText) {
         try {
-            if (ANIMECAST.equals(pkg) && source != null) {
-                String name = textById(source, ":id/episodio_anime", 0);
-                if (name == null) name = textById(source, ":id/anime_nombre", 0);
-                if (name == null) name = textById(source, ":id/anime_titulo", 0);
-                if (name != null && name.length() > 1) acAnime = name;
+            if (ANIMECAST.equals(pkg)) {
+                String name = source == null ? null : textById(source, ":id/episodio_anime", 0);
+                if (name == null && eventText != null) {
+                    // La tarjeta trae sus textos: si uno es «Episodio N», el más largo es el anime.
+                    boolean card = false;
+                    String best = null;
+                    for (CharSequence x : eventText) {
+                        if (x == null) continue;
+                        String v = x.toString().trim();
+                        if (AC_EP.matcher(v).matches()) card = true;
+                        else if (good(v) && (best == null || v.length() > best.length())) best = v;
+                    }
+                    if (card) name = best;
+                }
+                // Otro botón: se olvida el anterior para no ponerle su nombre a otro anime.
+                acAnime = name != null && name.length() > 1 ? name : null;
+                return;
             }
         } catch (Exception ignored) {
         }
@@ -221,6 +317,11 @@ final class ContinueWatch {
                 boolean episodeButton = (id != null && id.endsWith(":id/mTextTitle") && t != null && t.toString().trim().matches("\\d{1,4}"))
                         || (t != null && t.toString().trim().matches("\\d{1,4}"));
                 if (episodeButton) restartEpisode(pkg);
+                if (id != null && id.endsWith(":id/mBtnReplay")) { // «Desde el inicio»
+                    resumePkg = pkg;
+                    resumeMs = 0;
+                    resumeAt = SystemClock.uptimeMillis();
+                }
             }
         } catch (Exception ignored) {
         }
@@ -415,10 +516,30 @@ final class ContinueWatch {
         if (xuper(pkg)) restart.add(pkg);
     }
 
+    private static final Pattern RESUME = Pattern.compile("([0-9]{1,2}):([0-9]{2}):([0-9]{2})");
+    private static volatile String resumePkg;
+    private static volatile long resumeMs = -1, resumeAt;
+
+    /** Pone el minuto que mostró el recuadro de la app (o 0 si se eligió «Desde el inicio»). */
+    private static void applyResume(Context c, String pkg, String title) {
+        if (resumeMs < 0 || !pkg.equals(resumePkg)) return;
+        long v = resumeMs;
+        resumeMs = -1;
+        if (SystemClock.uptimeMillis() - resumeAt > 90_000) return;
+        restart.remove(pkg);
+        c.getSharedPreferences(WATCH_PREFS, Context.MODE_PRIVATE).edit()
+                .putString("last|" + pkg, title).putLong(pkg + "|" + title, v).apply();
+    }
+
     static void tick(Context c, String pkg, long ms) {
+        if (ANIMECAST.equals(pkg)) {
+            acAdvance(c, false);
+            return;
+        }
         if (!xuper(pkg)) return;
         String title = strong.get(pkg);
         if (title == null || !EP_IN_TITLE.matcher(title).find()) return;
+        applyResume(c, pkg, title);
         android.os.PowerManager pm = (android.os.PowerManager) c.getSystemService(Context.POWER_SERVICE);
         if (pm != null && !pm.isInteractive()) return; // pantalla apagada: no cuenta
         android.content.SharedPreferences p = c.getSharedPreferences(WATCH_PREFS, Context.MODE_PRIVATE);
@@ -487,7 +608,12 @@ final class ContinueWatch {
      * ya lo que se estaba viendo: la tarjeta aparece al instante en el inicio.
      */
     static void onLeave(AccessibilityService svc, String pkg) {
-        if (pkg == null || skip(svc, pkg) || xuper(pkg) || ANIMECAST.equals(pkg)) return;
+        if (ANIMECAST.equals(pkg)) {
+            acAdvance(svc, true);
+            acPlaying = false;
+            return;
+        }
+        if (pkg == null || skip(svc, pkg) || xuper(pkg)) return;
         Long at = soundAt.get(pkg);
         long now = SystemClock.uptimeMillis();
         if (at == null || now - at > 3 * 60_000) return;
@@ -506,6 +632,10 @@ final class ContinueWatch {
 
     /** Guarda la tarjeta con una imagen del momento (si se puede). */
     private static void capture(AccessibilityService svc, String pkg, String title) {
+        capture(svc, pkg, title, -1, -1);
+    }
+
+    private static void capture(AccessibilityService svc, String pkg, String title, long pos, long dur) {
         if (Build.VERSION.SDK_INT >= 30 && canShoot(pkg)) {
             try {
                 svc.takeScreenshot(Display.DEFAULT_DISPLAY, worker, new AccessibilityService.TakeScreenshotCallback() {
@@ -521,19 +651,19 @@ final class ContinueWatch {
                             r.getHardwareBuffer().close();
                         } catch (Exception ignored) {
                         }
-                        save(svc, pkg, title, null, -1, -1, frame);
+                        save(svc, pkg, title, null, pos, dur, frame);
                     }
 
                     @Override
                     public void onFailure(int errorCode) {
-                        save(svc, pkg, title, null, -1, -1, null);
+                        save(svc, pkg, title, null, pos, dur, null);
                     }
                 });
                 return;
             } catch (Exception ignored) {
             }
         }
-        worker.execute(() -> save(svc, pkg, title, null, -1, -1, null));
+        worker.execute(() -> save(svc, pkg, title, null, pos, dur, null));
     }
 
     static void onScreen(AccessibilityService svc, String pkg, List<AccessibilityNodeInfo> nodes) {
@@ -556,6 +686,18 @@ final class ContinueWatch {
         // WiwyXuper / Xuper Hydra: solo vale la ficha de la serie con temporada y episodio.
         // Avisos, notificaciones, historial y menús de la app se ignoran (eran los títulos raros).
         if (xuper(pkg)) {
+            // Recuadro «Comenzar a partir de : 00:04:48»: el minuto exacto que guarda la propia app.
+            for (AccessibilityNodeInfo n : nodes) {
+                if (!idIs(n, "mTvPlayPositon") || n.getText() == null) continue;
+                Matcher m = RESUME.matcher(n.getText());
+                if (m.find()) {
+                    resumeMs = (Integer.parseInt(m.group(1)) * 3600L + Integer.parseInt(m.group(2)) * 60L
+                            + Integer.parseInt(m.group(3))) * 1000L;
+                    resumePkg = pkg;
+                    resumeAt = now;
+                }
+                return;
+            }
             String ep = xuperEpisode(nodes);
             if (ep != null && !EP_IN_TITLE.matcher(ep).find()) {
                 String prev = strong.get(pkg);
@@ -563,6 +705,7 @@ final class ContinueWatch {
             }
             if (ep == null) return;
             strong.put(pkg, ep);
+            applyResume(svc, pkg, ep);
             lastTitle.put(pkg, ep);
             lastTitleAt.put(pkg, now);
             Long lastX = lastShot.get(pkg);
@@ -999,6 +1142,7 @@ final class ContinueWatch {
     }
 
     private static synchronized void saveImported(Context ctx, String pkg, List<Card> cards, Bitmap full) {
+        if (ANIMECAST.equals(pkg)) acCards = new ArrayList<>(cards);
         try {
             JSONArray old = load(ctx);
             Map<String, JSONObject> byKey = new HashMap<>();
@@ -1070,6 +1214,7 @@ final class ContinueWatch {
                 String pkg = o.getString("pkg");
                 if (skip(c, pkg) || o.optString("title", "").trim().isEmpty()) continue;
                 if (isLive(c, o.optString("title", ""))) continue; // canal en vivo: fuera
+                if (AC_EP.matcher(o.optString("title", "").trim()).matches()) continue; // «Episodio 7» a secas
                 if (NOISE.matcher(o.optString("title", "")).find()) continue; // texto de la app, no un título
                 if (xuper(pkg) && !EP_IN_TITLE.matcher(o.optString("title", "")).find()) continue; // sin episodio: dudosa
                 // Una sola tarjeta por serie (la más reciente).
@@ -1105,7 +1250,7 @@ final class ContinueWatch {
                 m.put("sub", o.optString("sub", ""));
                 m.put("pos", o.optLong("pos", -1));
                 long approx = watchedMs(c, pkg, String.valueOf(m.get("title")));
-                if (approx >= 60_000) m.put("approxMin", (int) (approx / 60_000));
+                if (approx >= 10_000) m.put("approxMin", (approx / 60_000) + ":" + String.format(Locale.ROOT, "%02d", (approx / 1000) % 60));
                 m.put("dur", o.optLong("dur", -1));
                 m.put("time", o.optLong("time", 0));
                 String path = o.optString("image", "");

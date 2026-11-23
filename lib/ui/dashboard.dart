@@ -876,7 +876,7 @@ class _ContinueCardState extends State<_ContinueCard> {
                     ),
                   ] else if (title.isNotEmpty && title != app)
                     Text(
-                      it['approxMin'] != null ? '$app · ibas por el min ~${it['approxMin']}' : app,
+                      it['approxMin'] != null ? '$app · vas en ${it['approxMin']}' : app,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
