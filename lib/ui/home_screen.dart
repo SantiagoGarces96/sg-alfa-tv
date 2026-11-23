@@ -369,11 +369,12 @@ class _HomeScreenState extends State<HomeScreen> {
   };
 
   Widget _wallpaper(SgTheme t, String id, Size size) {
-    if (id == 'app')
+    if (id == 'app') {
       return AppBackdrop(
         key: const ValueKey('app-backdrop'),
         fallback: t.night,
       );
+    }
     if (id == 'solido') {
       return ColoredBox(
         key: ValueKey('solid-${t.id}'),

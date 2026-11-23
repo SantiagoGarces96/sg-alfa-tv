@@ -29,7 +29,7 @@ Future<void> showSettingsPanel(BuildContext context, {String? page}) => showGene
       barrierLabel: 'Ajustes',
       barrierColor: const Color(0x99000000),
       transitionDuration: const Duration(milliseconds: 220),
-      pageBuilder: (_, __, ___) => MultiProvider(
+      pageBuilder: (_, _, _) => MultiProvider(
         providers: [
           ChangeNotifierProvider.value(value: context.read<AppsModel>()),
           ChangeNotifierProvider.value(value: context.read<ThemeModel>()),
@@ -40,7 +40,7 @@ Future<void> showSettingsPanel(BuildContext context, {String? page}) => showGene
         ],
         child: _Panel(initialPage: page),
       ),
-      transitionBuilder: (_, anim, __, child) => FadeTransition(
+      transitionBuilder: (_, anim, _, child) => FadeTransition(
         opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
         child: ScaleTransition(
           scale: Tween(begin: 1.03, end: 1.0).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
@@ -85,7 +85,7 @@ class _PanelState extends State<_Panel> {
             },
             child: Navigator(
               key: nav,
-              onGenerateInitialRoutes: (_, __) => [
+              onGenerateInitialRoutes: (_, _) => [
                 _route(const _MainPage()),
                 if (initialPage == 'protection') _route(const _ProtectionPage()),
               ],
@@ -98,9 +98,9 @@ class _PanelState extends State<_Panel> {
 }
 
 Route _route(Widget page) => PageRouteBuilder(
-      pageBuilder: (_, __, ___) => page,
+      pageBuilder: (_, _, _) => page,
       transitionDuration: const Duration(milliseconds: 160),
-      transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: a, child: child),
+      transitionsBuilder: (_, a, _, child) => FadeTransition(opacity: a, child: child),
     );
 
 /// Página de ajustes al estilo Apple TV: título arriba al centro, icono grande a la izquierda

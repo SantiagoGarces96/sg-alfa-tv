@@ -1,5 +1,9 @@
 name: Comprobar
 
+concurrency:
+  group: comprobar-${{ github.ref }}
+  cancel-in-progress: false
+
 on:
   push:
     branches: [main]
@@ -21,4 +25,6 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
-      - run: flutter build apk --debug
+      # GitHub a veces no descarga un complemento: se reintenta antes de dar error.
+      - run: |
+          for i in 1 2 3; do flutter build apk --debug && break; [ $i = 3 ] && exit 1; echo "Reintento $i"; sleep 20; done

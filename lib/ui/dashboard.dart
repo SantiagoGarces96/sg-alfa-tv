@@ -7,7 +7,6 @@
 
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -309,10 +308,8 @@ class _WeatherCard extends StatelessWidget {
 
 class _MediaCard extends StatelessWidget {
   final double u;
-  /// En teles (con botón de entradas) hay menos sitio: solo ▶/❚❚.
-  final bool compact;
 
-  const _MediaCard({required this.u, this.compact = false});
+  const _MediaCard({required this.u});
 
   @override
   Widget build(BuildContext context) {
@@ -409,27 +406,23 @@ class _MediaCard extends StatelessWidget {
           ),
           if (access) ...[
             SizedBox(width: 8 * u),
-            if (!compact) ...[
-              _MediaBtn(
-                u: u,
-                icon: Icons.skip_previous,
-                onPressed: () => w.command('prev'),
-              ),
-              SizedBox(width: 6 * u),
-            ],
+            _MediaBtn(
+              u: u,
+              icon: Icons.skip_previous,
+              onPressed: () => w.command('prev'),
+            ),
+            SizedBox(width: 6 * u),
             _MediaBtn(
               u: u,
               icon: playing ? Icons.pause : Icons.play_arrow,
               onPressed: () => w.command('toggle'),
             ),
-            if (!compact) ...[
-              SizedBox(width: 6 * u),
-              _MediaBtn(
-                u: u,
-                icon: Icons.skip_next,
-                onPressed: () => w.command('next'),
-              ),
-            ],
+            SizedBox(width: 6 * u),
+            _MediaBtn(
+              u: u,
+              icon: Icons.skip_next,
+              onPressed: () => w.command('next'),
+            ),
           ],
         ],
       ),
@@ -443,7 +436,7 @@ class _Focusable extends StatefulWidget {
   final VoidCallback onPressed;
   final FocusNode? focusNode;
   final VoidCallback? onFocused;
-  /** Mantener OK pulsado (≈0,7 s). */
+  /// Mantener OK pulsado (≈0,7 s).
   final VoidCallback? onLongPress;
 
   const _Focusable({
@@ -694,7 +687,7 @@ class _ContinueCard extends StatefulWidget {
 class _ContinueCardState extends State<_ContinueCard> {
   Future<Uint8List?>? _banner;
 
-  /** Mantener OK sobre la tarjeta: preguntar si se quita de «Continuar viendo». */
+  /// Mantener OK sobre la tarjeta: preguntar si se quita de «Continuar viendo».
   Future<void> _askRemove(BuildContext context, String title) async {
     final it = widget.item;
     // El OK con el que se abrió la ventana (mantenido) no cuenta: se espera a que se suelte.
@@ -756,8 +749,9 @@ class _ContinueCardState extends State<_ContinueCard> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (widget.item['image'] == null)
+    if (widget.item['image'] == null) {
       _banner ??= context.read<AppsModel>().image('${widget.item['package']}');
+    }
   }
 
   @override
