@@ -58,7 +58,7 @@ class _UpdateDialog extends StatelessWidget {
                 padding: const EdgeInsets.all(12),
                 decoration: Pro.box(color: Pro.text, radius: 4, border: 3, shadow: 3),
                 child: Text(message,
-                    style: TextStyle(color: Pro.on(Pro.text), fontSize: 15, fontWeight: FontWeight.w700, height: 1.3)),
+                    style: TextStyle(color: Pro.text, fontSize: 15, fontWeight: FontWeight.w700, height: 1.3)),
               ),
             ),
           ]),

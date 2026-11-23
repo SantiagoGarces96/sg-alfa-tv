@@ -115,8 +115,10 @@ class _AppTileState extends State<AppTile> {
         setState(() => _pressed = true);
         _hold = Timer(_holdTime, _fireOptions);
       }
-      if (e is KeyRepeatEvent) _fireOptions(); // el sistema ya dice que se está manteniendo
+      if (e is KeyRepeatEvent && _pressed) _fireOptions(); // el sistema ya dice que se está manteniendo
     } else if (e is KeyUpEvent) {
+      // El OK se pulsó en otro sitio (p. ej. cerrar una ventana): soltarlo aquí no abre la app.
+      if (!_pressed && !_longFired) return KeyEventResult.handled;
       if (_longFired) {
         _hold?.cancel();
         if (mounted) setState(() => _pressed = false);
