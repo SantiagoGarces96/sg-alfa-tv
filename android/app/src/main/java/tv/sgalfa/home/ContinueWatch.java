@@ -223,15 +223,15 @@ final class ContinueWatch {
             // Página del episodio: el tiempo está ahí; el nombre, de la tarjeta tocada o de su lista.
             acPlaying = false;
             long p = hAt == null ? -1 : ms(hAt), d = hTotal == null ? -1 : ms(hTotal);
-            String name = acAnime;
-            if (name == null) {
-                for (Card c : acCards) {
-                    if (ep.equalsIgnoreCase(c.episode) && d > 0 && c.dur == d && Math.abs(c.pos - p) < 120_000) {
-                        name = c.series;
-                        break;
-                    }
+            String name = null;
+            int hits = 0;
+            for (Card c : acCards) {
+                if (ep.equalsIgnoreCase(c.episode) && d > 0 && c.dur == d && c.pos == p) {
+                    name = c.series;
+                    hits++;
                 }
             }
+            if (hits != 1) name = acAnime;
             String t = name == null ? null : name + " - " + ep;
             if (t == null && acTitle != null && acTitle.endsWith(" - " + ep)) t = acTitle;
             if (t != null) {
@@ -273,6 +273,13 @@ final class ContinueWatch {
         }
     }
 
+    /** Se abrió el reproductor de Anime Cast (sus controles se esconden enseguida). */
+    static void onWindow(String pkg, CharSequence cls) {
+        if (!ANIMECAST.equals(pkg) || cls == null || !cls.toString().contains("reproductor")) return;
+        if (!acPlaying) acAt = SystemClock.uptimeMillis();
+        acPlaying = true;
+    }
+
     /** El video sigue con los controles escondidos: sumar lo que ha pasado. */
     private static void acAdvance(Context c, boolean leaving) {
         if (!acPlaying || acTitle == null) return;
@@ -299,7 +306,9 @@ final class ContinueWatch {
                         if (x == null) continue;
                         String v = x.toString().trim();
                         if (AC_EP.matcher(v).matches()) card = true;
-                        else if (good(v) && (best == null || v.length() > best.length())) best = v;
+                        else if (v.length() >= 2 && v.length() <= 200 && !TIME.matcher(v).matches()
+                                && !v.toLowerCase(Locale.ROOT).startsWith("foto")
+                                && (best == null || v.length() > best.length())) best = v;
                     }
                     if (card) name = best;
                 }
@@ -316,7 +325,10 @@ final class ContinueWatch {
                 if (t == null && eventText != null && !eventText.isEmpty()) t = eventText.get(0);
                 boolean episodeButton = (id != null && id.endsWith(":id/mTextTitle") && t != null && t.toString().trim().matches("\\d{1,4}"))
                         || (t != null && t.toString().trim().matches("\\d{1,4}"));
-                if (episodeButton) restartEpisode(pkg);
+                if (episodeButton) {
+                    restartEpisode(pkg);
+                    xuperPick.put(pkg, t.toString().trim());
+                }
                 if (id != null && id.endsWith(":id/mBtnReplay")) { // «Desde el inicio»
                     resumePkg = pkg;
                     resumeMs = 0;
@@ -517,6 +529,7 @@ final class ContinueWatch {
     }
 
     private static final Pattern RESUME = Pattern.compile("([0-9]{1,2}):([0-9]{2}):([0-9]{2})");
+    private static final Map<String, String> xuperPick = new java.util.concurrent.ConcurrentHashMap<>();
     private static volatile String resumePkg;
     private static volatile long resumeMs = -1, resumeAt;
 
@@ -699,9 +712,15 @@ final class ContinueWatch {
                 return;
             }
             String ep = xuperEpisode(nodes);
-            if (ep != null && !EP_IN_TITLE.matcher(ep).find()) {
+            if (ep != null && EP_IN_TITLE.matcher(ep).find()) {
+                xuperPick.remove(pkg);
+            } else if (ep != null) {
+                // El ▶ no está a la vista: el número que se tocó o el último capítulo de esa serie.
+                String pick = xuperPick.remove(pkg);
                 String prev = strong.get(pkg);
-                ep = prev != null && prev.startsWith(ep + " E") ? prev : null; // mismo capítulo de antes
+                if (prev == null) prev = svc.getSharedPreferences(WATCH_PREFS, Context.MODE_PRIVATE).getString("last|" + pkg, null);
+                if (pick != null) ep = ep + " E" + pick;
+                else ep = prev != null && prev.startsWith(ep + " E") ? prev : null;
             }
             if (ep == null) return;
             strong.put(pkg, ep);
@@ -1214,7 +1233,8 @@ final class ContinueWatch {
                 String pkg = o.getString("pkg");
                 if (skip(c, pkg) || o.optString("title", "").trim().isEmpty()) continue;
                 if (isLive(c, o.optString("title", ""))) continue; // canal en vivo: fuera
-                if (AC_EP.matcher(o.optString("title", "").trim()).matches()) continue; // «Episodio 7» a secas
+                if (AC_EP.matcher(o.optString("title", "").trim()).matches()
+                        || o.optString("title", "").startsWith("Foto Anime")) continue; // «Episodio 7» a secas
                 if (NOISE.matcher(o.optString("title", "")).find()) continue; // texto de la app, no un título
                 if (xuper(pkg) && !EP_IN_TITLE.matcher(o.optString("title", "")).find()) continue; // sin episodio: dudosa
                 // Una sola tarjeta por serie (la más reciente).

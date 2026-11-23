@@ -482,6 +482,7 @@ public class AutoClickService extends AccessibilityService {
             "com.google.android.apps.nexuslauncher", "com.android.launcher3", "com.google.android.tvlauncher",
             "com.google.android.apps.tv.launcherx", "com.spocky.projengmenu"));
     private static final long SETTLE_MS = 600;
+    private long scanWaitFrom = 0;
     private long lastAudioCheck = 0;
     private boolean playingNow = false;
     private long lastScan;
@@ -512,6 +513,7 @@ public class AutoClickService extends AccessibilityService {
             // Se cambió de app (o se volvió al inicio): guardar ya lo que se veía en la anterior.
             if (lastFrontPkg != null && !lastFrontPkg.equals(pkg)) ContinueWatch.onLeave(this, lastFrontPkg);
             lastFrontPkg = pkg;
+            ContinueWatch.onWindow(pkg, event.getClassName());
             // (Sin vigilancia por capturas en Mercado Play: capturar su video protegido reinicia el deco.)
         }
         if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED && !cleaning && !pkg.equals(getPackageName())) {
@@ -541,6 +543,9 @@ public class AutoClickService extends AccessibilityService {
         // del último cambio de contenido. Así el control responde siempre al instante.
         long wait = windowChanged ? 400 : Math.max(900, settle);
         if (now - lastKeyAt < 1500) wait = Math.max(wait, 1200);
+        // …pero nunca se aplaza para siempre (video con subtítulos, barras que se mueven): 3 s como mucho.
+        if (!scanQueued) scanWaitFrom = now;
+        wait = Math.min(wait, Math.max(0, scanWaitFrom + 3000 - now));
         handler.removeCallbacks(queuedScan);
         scanQueued = true;
         handler.postDelayed(queuedScan, wait);
