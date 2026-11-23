@@ -57,19 +57,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool _updating = false;
 
-  /// Actualización automática: al detectar una versión nueva la descarga y abre el instalador.
+  /// Pop-up de versión nueva: sale al estar en el inicio y, si se deja para más tarde, recuerda cada 24 h.
   Future<void> _maybeUpdate() async {
     final u = context.read<UpdateModel>();
     if (!u.available || _updating || !mounted) return;
     if (ModalRoute.of(context)?.isCurrent != true) return;
-    final p = await SharedPreferences.getInstance();
-    if (p.getString('update_offered') == u.latest) return;
     _updating = true;
-    await p.setString('update_offered', u.latest);
-    if (!mounted) return;
-    u.download(); // al terminar abre la ventana de instalar de Android
-    await showUpdateDialog(context);
-    _updating = false;
+    try {
+      final p = await SharedPreferences.getInstance();
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final again = now - (p.getInt('update_offered_at') ?? 0) > const Duration(hours: 24).inMilliseconds;
+      if (p.getString('update_offered') == u.latest && !again) return;
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+      await p.setString('update_offered', u.latest);
+      await p.setInt('update_offered_at', now);
+      if (!mounted) return;
+      await showUpdateDialog(context);
+    } finally {
+      _updating = false;
+    }
   }
 
   /// El día de limpieza, la primera vez que se ve el inicio, Alfi propone limpiar.

@@ -40,7 +40,7 @@ class _UpdateDialog extends StatelessWidget {
     } else if (u.state == 'error') {
       message = 'No pude descargarla (${u.error}). Revisa la conexión e inténtalo otra vez.';
     } else {
-      message = '¡Hay una versión nueva! Tienes la ${u.current} y ya está la ${u.latest}.';
+      message = '¡Nueva actualización disponible! Ya está la ${u.latest} (tienes la ${u.current}). Pulsa «Actualizar ahora».';
     }
 
     return Dialog(
@@ -64,10 +64,10 @@ class _UpdateDialog extends StatelessWidget {
           ]),
           if (u.available && !downloading && u.state != 'ready') ...[
             const SizedBox(height: 14),
-            Text('NOVEDADES', style: Pro.title(15)),
+            Text('Novedades', style: Pro.title(15)),
             const SizedBox(height: 6),
             ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 150),
+              constraints: const BoxConstraints(maxHeight: 190),
               child: SingleChildScrollView(child: Text(notes, style: Pro.body(13, weight: FontWeight.w500))),
             ),
           ],
@@ -91,7 +91,7 @@ class _UpdateDialog extends StatelessWidget {
                 autofocus: true,
                 color: Pro.accent,
                 onPressed: u.download,
-                child: const Row(children: [Icon(Icons.system_update_alt), SizedBox(width: 6), Text('Actualizar')]),
+                child: const Row(children: [Icon(Icons.system_update_alt), SizedBox(width: 6), Text('Actualizar ahora')]),
               ),
             if (u.state == 'ready')
               ProButton(
@@ -105,11 +105,11 @@ class _UpdateDialog extends StatelessWidget {
                 autofocus: true,
                 color: Pro.accent,
                 onPressed: u.check,
-                child: const Text('BUSCAR OTRA VEZ'),
+                child: const Text('Buscar otra vez'),
               ),
             ProButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text(downloading ? 'SEGUIR EN SEGUNDO PLANO' : 'MÁS TARDE'),
+              child: Text(downloading ? 'Seguir en segundo plano' : (u.available ? 'Más tarde' : 'Cerrar')),
             ),
           ]),
         ]),

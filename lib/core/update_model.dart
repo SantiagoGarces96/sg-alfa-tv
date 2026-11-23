@@ -5,11 +5,11 @@
 
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import 'native.dart';
 
-class UpdateModel extends ChangeNotifier {
+class UpdateModel extends ChangeNotifier with WidgetsBindingObserver {
   String current = '';
   String latest = '';
   String notes = '';
@@ -28,8 +28,26 @@ class UpdateModel extends ChangeNotifier {
 
   double get fraction => size > 0 ? (downloaded / size).clamp(0, 1).toDouble() : 0;
 
+  DateTime _checkedAt = DateTime(2000);
+
+  /// Al volver al inicio: mirar otra vez si hace más de 3 h, y avisar por si el pop-up quedó pendiente.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState s) {
+    if (s != AppLifecycleState.resumed) return;
+    if (DateTime.now().difference(_checkedAt).inHours >= 3) {
+      check();
+    } else if (available) {
+      notifyListeners();
+    }
+  }
+
   void start() {
+    WidgetsBinding.instance.addObserver(this);
     check();
+    // Recién encendido puede no haber internet todavía.
+    Timer(const Duration(minutes: 1), () {
+      if (checkError != null || latest.isEmpty) check();
+    });
     _periodic = Timer.periodic(const Duration(hours: 6), (_) => check());
   }
 
@@ -45,6 +63,7 @@ class UpdateModel extends ChangeNotifier {
         url = r['url'] as String?;
         available = r['available'] == true;
         checkError = r['error'] as String?;
+        if (checkError == null) _checkedAt = DateTime.now();
       }
     } catch (e) {
       checkError = '$e';
@@ -79,6 +98,7 @@ class UpdateModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _poll?.cancel();
     _periodic?.cancel();
     super.dispose();
