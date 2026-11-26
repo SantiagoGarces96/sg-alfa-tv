@@ -319,22 +319,109 @@ public class DnsBlockVpnService extends VpnService {
         return out;
     }
 
-    /** Pregunta a AdGuard DNS (y si no contesta, al de reserva), sea cual sea el DNS que pidió la app. */
+    /**
+     * AdGuard decide si es un anuncio; la dirección la da el DNS de la casa (router/operador).
+     * AdGuard devuelve servidores de video lejanos para algunos dominios (p. ej. los partidos de
+     * WiwyXuper) y esos servidores rechazan la conexión (error 484). Se pregunta a los dos a la vez:
+     * si AdGuard lo bloquea, bloqueado; si no, se usa la respuesta del DNS de la casa.
+     */
     private byte[] resolve(byte[] query) {
-        for (String up : new String[]{UPSTREAM, UPSTREAM2}) {
-            DatagramSocket s = null;
-            try {
-                s = new DatagramSocket();
-                protect(s);
-                s.setSoTimeout(2500);
-                byte[] a = forward(s, InetAddress.getByName(up).getAddress(), query);
-                if (a != null) return a;
-            } catch (Exception ignored) {
-            } finally {
-                if (s != null) s.close();
+        DatagramSocket ag = null, home = null;
+        try {
+            ag = new DatagramSocket();
+            protect(ag);
+            ag.setSoTimeout(2500);
+            send(ag, UPSTREAM, query);
+            byte[] local = homeDns();
+            if (local != null) {
+                home = new DatagramSocket();
+                protect(home);
+                home.setSoTimeout(2500);
+                send(home, local, query);
             }
+            byte[] a = receive(ag);
+            if (a == null) a = ask(UPSTREAM2, query);
+            if (a != null && isNullAnswer(a)) return a; // anuncio: bloqueado por AdGuard
+            byte[] h = home == null ? null : receive(home);
+            if (h != null && rcode(h) == 0 && answers(h) > 0) return h;
+            if (a != null) return a;
+            return h;
+        } catch (Exception e) {
+            return ask(UPSTREAM2, query);
+        } finally {
+            if (ag != null) ag.close();
+            if (home != null) home.close();
         }
-        return null;
+    }
+
+    private byte[] ask(String server, byte[] query) {
+        DatagramSocket s = null;
+        try {
+            s = new DatagramSocket();
+            protect(s);
+            s.setSoTimeout(2500);
+            send(s, server, query);
+            return receive(s);
+        } catch (Exception e) {
+            return null;
+        } finally {
+            if (s != null) s.close();
+        }
+    }
+
+    private static void send(DatagramSocket s, Object server, byte[] query) throws Exception {
+        InetAddress addr = server instanceof byte[] ? InetAddress.getByAddress((byte[]) server) : InetAddress.getByName((String) server);
+        s.send(new DatagramPacket(query, query.length, addr, 53));
+    }
+
+    private static byte[] receive(DatagramSocket s) {
+        try {
+            byte[] buf = new byte[1500];
+            DatagramPacket resp = new DatagramPacket(buf, buf.length);
+            s.receive(resp);
+            return slice(buf, 0, resp.getLength());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static int rcode(byte[] dns) {
+        return dns.length < 4 ? -1 : dns[3] & 0x0F;
+    }
+
+    private static int answers(byte[] dns) {
+        return dns.length < 8 ? 0 : ((dns[6] & 0xFF) << 8) | (dns[7] & 0xFF);
+    }
+
+    private volatile byte[] homeDns;
+    private volatile long homeDnsAt;
+
+    /** DNS de la red de verdad (wifi/cable, no la VPN), IPv4. Se mira cada 30 s. */
+    private byte[] homeDns() {
+        long now = android.os.SystemClock.uptimeMillis();
+        if (homeDnsAt != 0 && now - homeDnsAt < 30_000) return homeDns;
+        homeDnsAt = now;
+        byte[] found = null;
+        try {
+            android.net.ConnectivityManager cm = getSystemService(android.net.ConnectivityManager.class);
+            for (android.net.Network n : cm.getAllNetworks()) {
+                android.net.NetworkCapabilities nc = cm.getNetworkCapabilities(n);
+                if (nc == null || nc.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)
+                        || !nc.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)) continue;
+                android.net.LinkProperties lp = cm.getLinkProperties(n);
+                if (lp == null) continue;
+                for (InetAddress d : lp.getDnsServers()) {
+                    if (d instanceof java.net.Inet4Address) {
+                        found = d.getAddress();
+                        break;
+                    }
+                }
+                if (found != null) break;
+            }
+        } catch (Exception ignored) {
+        }
+        homeDns = found;
+        return found;
     }
 
     private static byte[] forward(DatagramSocket socket, byte[] dnsIp, byte[] query) {
@@ -489,8 +576,9 @@ public class DnsBlockVpnService extends VpnService {
             int rdlen = ((dns[i + 8] & 0xFF) << 8) | (dns[i + 9] & 0xFF);
             i += 10;
             if (i + rdlen > dns.length) return false;
-            if (type == 1 && rdlen == 4) {
-                return dns[i] == 0 && dns[i + 1] == 0 && dns[i + 2] == 0 && dns[i + 3] == 0;
+            if ((type == 1 && rdlen == 4) || (type == 28 && rdlen == 16)) {
+                for (int k = 0; k < rdlen; k++) if (dns[i + k] != 0) return false;
+                return true;
             }
             i += rdlen;
         }
